@@ -7,21 +7,15 @@ Overall of project
 '''
 from sentence_prepocessing import Sentence_prepocess
 
-sentence_proc = Sentence_prepocess(stemer='Porter')
+# sentence_proc = Sentence_prepocess(stemer='Porter')
 
-# get the input query
-query = 'How old are you?'
-query = sentence_proc.cleaning(query)
 
-document = [
-    'This is my house :)', 'Nice to meet you', 'Really?', 'Can you help me Mercy', 'I\'m 10 years old', 'Are you okay?'
-]
+from retrival import retrival
 
-#
-for i, sentence in enumerate(document):
-    document[i] = sentence_proc.cleaning(sentence)
+# assume the user query
+query = 'good morning :)'
+# name of document file
+doc_name = './src/ubuntu_logs.txt'
 
-from retrival import Retrival
-retrieve = Retrival()
-retrieve.retrieve()
-
+retrival = retrival(filename=doc_name)
+candidate = retrival.retrive(query)

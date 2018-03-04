@@ -1,7 +1,9 @@
 import gensim
 
-# loading the downloaded model
-model = gensim.models.KeyedVectors.load_word2vec_format('./src/GoogleNews-vectors-negative300.bin', binary=True)
+# Load Google's pre-trained Word2Vec model.
+model = gensim.models.KeyedVectors.load_word2vec_format(
+    '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/Resource/GoogleNews-vectors-negative300.bin',
+    binary=True)
 
 # the model is loaded. It can be used to perform all of the tasks mentioned above.
 

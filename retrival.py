@@ -37,8 +37,11 @@ class retrival():
         poss_reponse = [('', -100 + i) for i in range(0, self.__n_candidate)]
 
         with open(self.__filename) as f:
-            line = f.readline().strip()
             while True:
+                # read new line
+                line = f.readline().strip()
+                added = False
+
                 if line == '':
                     break
 
@@ -53,16 +56,16 @@ class retrival():
                     if score <= st_score:
                         poss_reponse.insert(i, (line, score))
                         poss_reponse.pop(0)
+                        added = True
+                        break
 
-                if i == len(poss_reponse) - 1:
+                if not added and i == len(poss_reponse) - 1:
                     poss_reponse.append((line, score))
                     poss_reponse.pop(0)
 
-                # read new line
-                line = f.readline().strip()
 
         return [candidate for (candidate, _) in poss_reponse]
 
 
 # rtv = retrival(filename='./src/ubuntu_logs.txt')
-# a = rtv.retrive('Hello. Which command is to install audio and video codecs?')
+# a = rtv.retrive('good morning :)')

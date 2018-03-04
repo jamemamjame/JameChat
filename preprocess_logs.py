@@ -39,7 +39,7 @@ w_filename = os.path.join(main_write_path, 'logs3.txt')
 # index for cutting list_filename
 strt, end = 20000, 40000
 
-# using 'a' mode for append write (not new write)
+# using 'a' mode for append write (not over writen)
 with open(w_filename, 'a') as writer:
     for i, filename in enumerate(list_filename[strt: end]):
         r_filename = os.path.join(main_read_path, filename)
