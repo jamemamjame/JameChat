@@ -1,18 +1,19 @@
 '''
-Retrival Method
-score by most shared word
+Retrival
+--------
+score by most shared non-stopwords
 '''
 from sentence_prepocessing import Sentence_prepocess
 
 
 class retrival():
-    def __init__(self, filename, stemer='Porter', n_candidate=10):
+    def __init__(self, filename, n_candidate=10):
         '''
         :param filename: path of file which abundant with sentence 
         :param stemer: 
         :param n_candidate: 
         '''
-        self.__sentence_proc = Sentence_prepocess(stemer=stemer,
+        self.__sentence_proc = Sentence_prepocess(stemer='Porter',
                                                   keep_stopword=False)  # ควรตัดให้ cleaning == clean == cleaned == cleans
         # file of a sentence in document
         self.__filename = filename
@@ -70,8 +71,8 @@ class retrival():
         return [candidate for (candidate, _) in poss_reponse]
 
 # # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
-if __name__ == '__main__':
-    import src.filepath as path
-    rtv = retrival(filename=path.DOCUMENT)
-    query = 'Do you know the history of Beijing?'
-    a = rtv.retrive(query)
+# if __name__ == '__main__':
+#     import src.filepath as path
+#     rtv = retrival(filename=path.DOCUMENT)
+#     query = 'Do you know the history of Beijing?'
+#     a = rtv.retrive(query)

@@ -1,7 +1,7 @@
 '''
 Word Matching
 -------------
-    word matching feature that counts the number (weighted by the IDF val- ue of each word in S)
+    word matching feature that counts the number (weighted by the IDF value of each word in S)
     of non-stopwords shared by S and Q.
 '''
 from sentence_prepocessing import Sentence_prepocess

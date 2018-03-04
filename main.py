@@ -9,6 +9,7 @@ Overall of project
 
 from src import filepath as path
 from response_retrival.retrival import retrival
+from response_ranking import ranking
 
 # assume the user query
 query = 'Do you know the history of Beijing?'
