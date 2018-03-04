@@ -4,71 +4,66 @@ Retrival
 score by most shared non-stopwords
 '''
 from sentence_prepocessing import Sentence_prepocess
+from src import filepath as path
+
+# file of a sentence in document
+filename = path.DOCUMENT
+n_candidate = 10
+
+sentence_proc = Sentence_prepocess(stemer='Porter',
+                                   keep_stopword=False)  # should cut >> cleaning == clean == cleaned == cleans == cleanly
 
 
-class retrival():
-    def __init__(self, filename, n_candidate=10):
-        '''
-        :param filename: path of file which abundant with sentence 
-        :param stemer: 
-        :param n_candidate: 
-        '''
-        self.__sentence_proc = Sentence_prepocess(stemer='Porter',
-                                                  keep_stopword=False)  # ควรตัดให้ cleaning == clean == cleaned == cleans
-        # file of a sentence in document
-        self.__filename = filename
-        self.__n_candidate = n_candidate
+def __get_score(query, res):
+    '''
+    :param query: list of pure word
+    :param res: list of pure word
+    :return:
+    '''
+    # convert list() to set() because we need to get only unique word for compare
+    return len(set(query).intersection(set(res))) / (len(query) + len(res))
 
-    def __get_score(self, query, res):
-        '''
-        :param query: list of pure word
-        :param res: list of pure word
-        :return:
-        '''
-        # convert list() to set() because we need to get only unique word for compare
-        return len(set(query).intersection(set(res))) / (len(query) + len(res))
 
-    def retrive(self, query):
-        '''
-        Retrieve a set of sentence that have a chance to be a best response given query
-        :param query: String of query (question)
-        :return: set of candidate response
-        '''
-        # extract a non-stopword and stem word
-        query = self.__sentence_proc.cleaning(query)
+def retrive(query):
+    '''
+    Retrieve a set of sentence that have a chance to be a best response given query
+    :param query: String of query (question)
+    :return: set of candidate response
+    '''
+    # extract a non-stopword and stem word
+    query = sentence_proc.cleaning(query)
 
-        # list of (response, score) that have top score
-        poss_reponse = [('', -100 + i) for i in range(0, self.__n_candidate)]
+    # list of (response, score) that have top score
+    poss_reponse = [('', -100 + i) for i in range(0, n_candidate)]
 
-        with open(self.__filename) as f:
-            while True:
-                # read new line
-                line = f.readline().strip()
-                added = False
+    with open(filename) as f:
+        while True:
+            # read new line
+            line = f.readline().strip()
+            added = False
 
-                if line == '':
+            if line == '':
+                break
+
+            tmp_line = sentence_proc.cleaning(line)
+            score = __get_score(query=query, res=tmp_line)
+
+            for i, (st, st_score) in enumerate(poss_reponse):
+                if i == 0 and score <= st_score:
+                    break
+                if score > st_score:
+                    continue
+                if score <= st_score:
+                    poss_reponse.insert(i, (line, score))
+                    poss_reponse.pop(0)
+                    added = True
                     break
 
-                tmp_line = self.__sentence_proc.cleaning(line)
-                score = self.__get_score(query=query, res=tmp_line)
+            if not added and i == len(poss_reponse) - 1:
+                poss_reponse.append((line, score))
+                poss_reponse.pop(0)
 
-                for i, (st, st_score) in enumerate(poss_reponse):
-                    if i == 0 and score <= st_score:
-                        break
-                    if score > st_score:
-                        continue
-                    if score <= st_score:
-                        poss_reponse.insert(i, (line, score))
-                        poss_reponse.pop(0)
-                        added = True
-                        break
-
-                if not added and i == len(poss_reponse) - 1:
-                    poss_reponse.append((line, score))
-                    poss_reponse.pop(0)
-
-
-        return [candidate for (candidate, _) in poss_reponse]
+    return [candidate for (candidate, _) in poss_reponse]
 
 # # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
 # if __name__ == '__main__':

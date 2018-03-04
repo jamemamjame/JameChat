@@ -36,7 +36,8 @@ def get_score(query, candidate):
     avg_cosine = sum_cosine / (len(query) * len(candidate))
     return avg_cosine
 
-
+# # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
+# if __name__ == '__main__':
 # # given query(Q) and candidate(S)
 # query = 'Do you know the history of Beijing?'
 # candidate = 'Beijing is a historical city that can be traced back to 3,000 years ago.'
