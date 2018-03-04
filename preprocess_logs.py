@@ -37,7 +37,7 @@ list_filename = os.listdir(main_read_path)
 w_filename = os.path.join(main_write_path, 'logs3.txt')
 
 # index for cutting list_filename
-strt, end = 0, 20000
+strt, end = 20000, 40000
 
 # using 'a' mode for append write (not new write)
 with open(w_filename, 'a') as writer:
