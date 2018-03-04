@@ -33,6 +33,9 @@ class retrival():
         :param query: String of query (question)
         :return: set of candidate response
         '''
+        # extract a non-stopword and stem word
+        query = self.__sentence_proc.cleaning(query)
+
         # list of (response, score) that have top score
         poss_reponse = [('', -100 + i) for i in range(0, self.__n_candidate)]
 
@@ -66,6 +69,9 @@ class retrival():
 
         return [candidate for (candidate, _) in poss_reponse]
 
-
-# rtv = retrival(filename='./src/ubuntu_logs.txt')
-# a = rtv.retrive('good morning :)')
+# # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
+if __name__ == '__main__':
+    import src.filepath as path
+    rtv = retrival(filename=path.DOCUMENT)
+    query = 'Do you know the history of Beijing?'
+    a = rtv.retrive(query)
