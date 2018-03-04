@@ -25,12 +25,18 @@ cr: https://datascience.stackexchange.com/questions/11402/preprocessing-text-bef
 # Importing the library
 import re  # regular expression
 from numpy import array
+from nltk.corpus import stopwords
 
 
 class Sentence_prepocess():
+    # regx for substitution string
+    __regx_rm_char = None
+    __stop_words = set(stopwords.words('english'))
 
-    def __set__stemer(self, stemmer):
-        if stemmer.lower().__eq__('Porter'.lower()):
+    def __set__stemer(self, stemmer=None):
+        if stemmer is None:
+            return None
+        elif stemmer.lower().__eq__('Porter'.lower()):
             from nltk.stem.porter import PorterStemmer
             return PorterStemmer()
         elif stemmer.lower().__eq__('WordNet'.lower()):
@@ -42,15 +48,13 @@ class Sentence_prepocess():
         elif stemmer.lower().__eq__('Snowball'.lower()):
             from nltk.stem.snowball import SnowballStemmer
             return SnowballStemmer()
-        else: return None
+        else:
+            return None
 
-    def __init__(self, stemer='Porter', keep_stopword=True):
+    def __init__(self, stemer=None, keep_stopword=True, regx_rm_char='[^a-zA-Z0-9]'):
         self.__keep_stopword = keep_stopword
+        self.__regx_rm_char = regx_rm_char
         self.__stemmer = self.__set__stemer(stemer)
-
-        if not self.__keep_stopword:
-            from nltk.corpus import stopwords
-            self.__stop_words = set(stopwords.words('english'))
 
     def cleaning(self, sentence):
         '''
@@ -61,7 +65,7 @@ class Sentence_prepocess():
         '''
 
         # Remove a special character
-        sentence = re.sub(pattern='[^a-zA-Z0-9]', repl=' ', string=sentence)
+        sentence = self.remove_special_char(sentence)
 
         # Convert to lowcase
         sentence = sentence.lower()
@@ -71,7 +75,7 @@ class Sentence_prepocess():
 
         # Remove English stop words
         if not self.__keep_stopword:
-            sentence = [word for word in sentence if word not in self.__stop_words]
+            sentence = self.remove_stopwords(sentence)
 
         # Remove Own stop words(if required)
 
@@ -79,10 +83,13 @@ class Sentence_prepocess():
         if self.__stemmer is not None:
             sentence = [self.__stemmer.stem(word) for word in sentence]
 
-        # Convert verb to v1
-
         return array(sentence)
 
+    def remove_stopwords(self, sentence):
+        return [word for word in sentence if word not in self.__stop_words]
+
+    def remove_special_char(self, sentence):
+        return re.sub(pattern=self.__regx_rm_char, repl=' ', string=sentence)
 
 # if __name__ == '__main__':
 #     sentence = 'My last name look like your dogs number 13, right? Told me!!!'

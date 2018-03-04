@@ -27,6 +27,7 @@ sudo apt-get install ubuntu-restricted-extras  ::this normally installs everythi
 you're welcome.
 also, does anyone know if doing a hard shutdown in XP will stop me from mounting the NTFS partitions that Windows XP uses?
 yes
+Beijing is a historical city that can be traced back to 3,000 years ago
 You must shutdown properly. or else you a force mount
 how can I check if my ubuntu is 32 or 64 bit
 thank you escott

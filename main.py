@@ -5,17 +5,18 @@ Overall of project
 
 @author: Jame Phankosol
 '''
-from sentence_prepocessing import Sentence_prepocess
-
-# sentence_proc = Sentence_prepocess(stemer='Porter')
 
 
-from retrival import retrival
+from src import filepath as path
+from response_retrival.retrival import retrival
 
 # assume the user query
-query = 'good morning :)'
+query = 'Do you know the history of Beijing?'
 # name of document file
-doc_name = './src/ubuntu_logs.txt'
+doc_name = path.DOCUMENT
 
 retrival = retrival(filename=doc_name)
-candidate = retrival.retrive(query)
+candidates = retrival.retrive(query)
+
+for candidate in candidates:
+    rank(query, candidate)
