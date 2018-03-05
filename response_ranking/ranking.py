@@ -45,5 +45,12 @@ def rank(query, candidates):
 #     "Street food in Thailand brings together various offerings of ready to eat meals",
 #     "snacks, fruits and drinks sold by hawkers or vendors at food stalls or food carts on the street side in Thailand",
 #     "There is scarcely a Thai dish that is not sold by a street vendor or at a market somewhere in Thailand",
+#     "China has a strong economy that is growing at a rapid pace. However politically it differs greatly from the US Economy.",
+#     "At last, China seems serious about confronting an endemic problem: domestic violence and corruption.",
+#     "Japan's prime minister, Shinzo Abe, is working towards healing the economic turmoil in his own country for his view on the future of his people.",
+#     "Vladimir Putin is working hard to fix the economy in Russia as the Ruble has tumbled.",
+#     "What's the future of Abenomics? We asked Shinzo Abe for his views",
+#     "Obama has eased sanctions on Cuba while accelerating those against the Russian Economy, even as the Ruble's value falls almost daily.",
+#     "Vladimir Putin is riding a horse while hunting deer. Vladimir Putin always seems so serious about things - even riding horses. Is he crazy?",
 # ]
 # results = rank(query, candidates)
