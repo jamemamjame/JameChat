@@ -10,8 +10,9 @@ from src import filepath as path
 filename = path.DOCUMENT
 n_candidate = 10
 
+# should cut >> cleaning == clean == cleaned == cleans == cleanly
 sentence_proc = Sentence_prepocess(stemer='Porter',
-                                   keep_stopword=False)  # should cut >> cleaning == clean == cleaned == cleans == cleanly
+                                   keep_stopword=False)
 
 
 def __get_score(query, res):

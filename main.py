@@ -8,16 +8,14 @@ Overall of project
 
 
 from src import filepath as path
-from response_retrival.retrival import retrival
-from response_ranking import ranking
+from response_retrival.retrival import retrive as Retrive
+from response_ranking.ranking import rank as Rank
 
 # assume the user query
 query = 'Do you know the history of Beijing?'
-# name of document file
-doc_name = path.DOCUMENT
 
-retrival = retrival(filename=doc_name)
-candidates = retrival.retrive(query)
+
+candidates = Retrive(query)
 
 for candidate in candidates:
-    rank(query, candidate)
+    Rank(query, candidate)
