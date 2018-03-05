@@ -12,21 +12,14 @@ def sub_write(reader, writer):
     :param writer: file which wanna write it
     :return:
     '''
-    line = reader.readline()
-    while True:
-        # break loop when we found a empty string
-        if line == '':
-            break
 
+    for line in reader:
         line = line.strip().split(sep='\t')
         if len(line) < 4:
             continue
 
         writer.write(line[-1])
         writer.write('\n')
-
-        # read new input line
-        line = reader.readline()
 
 
 main_read_path = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/Dataset/dialog/3'

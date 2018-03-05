@@ -58,14 +58,9 @@ def retrive(query):
     poss_reponse = [('', -(n_candidate + 5) + i) for i in range(0, n_candidate)]
 
     with open(filename, encoding='utf-8') as f:
-        while True:
-            # read new line
-            line = f.readline()
-
-            if line == '':
-                break
-            elif line.startswith('#') or line == '\n':
-                # check for skip line
+        for line in f:
+            # check for skip line
+            if line.startswith('#') or line == '\n':
                 continue
 
             line = line.strip()
@@ -94,4 +89,4 @@ def retrive(query):
 
 # # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
 # query = 'Do you know the history of Beijing?'
-# retrive(query)
+# results = retrive(query)
