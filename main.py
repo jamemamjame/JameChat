@@ -6,14 +6,12 @@ Overall of project
 @author: Jame Phankosol
 '''
 
-
 from src import static_variable as path
 from response_retrival.retrival import retrive as Retrive
 from response_ranking.ranking import rank as Rank
 
 # assume the user query
 query = 'Do you know the history of Beijing?'
-
 
 candidates = Retrive(query)
 

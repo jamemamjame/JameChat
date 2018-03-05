@@ -3,35 +3,31 @@ Retrival
 --------
 score by most shared non-stopwords
 '''
-from src import static_variable as var
+from src.static_variable import PATH_DOCUMENT, POSMAP, STOPWORDS
 from textblob import Sentence, Word
-from nltk.corpus import stopwords
 
 # file of a sentence in document
-filename = var.PATH_DOCUMENT
-n_candidate = 10
+filename = PATH_DOCUMENT
+n_candidate = 5
 
 # get a dict of POS map
-_POSMAP = var.POSMAP
-
-# get english stopwords from nltk-corpus
-stopwords = set(stopwords.words('english'))
+_POSMAP = POSMAP
 
 
 def prep_text(txt):
     '''
-    prepocess a text to list of word
+    Process a text string to list of word
     :param txt: text String
-    :return: list of word
+    :return: list of word that is non-stopwords and lemmatized
     '''
     word_list = []
     postags = Sentence(txt.lower()).pos_tags
     for word, pos in postags:
-        if word in stopwords:
+        if word in STOPWORDS:
             continue
 
         if pos[0] in _POSMAP.keys():
-            word_list.append(Word(word).lemmatize(_POSMAP[pos[0]]))
+            word_list.append(Word(word).lemmatize(POSMAP[pos[0]]))
         else:
             word_list.append(word)
     return word_list
@@ -57,16 +53,23 @@ def retrive(query):
     query = prep_text(query)
 
     # list of (response, score) that have top score
-    poss_reponse = [('', -100 + i) for i in range(0, n_candidate)]
+    # this list is ascending sorted
+    # the min score at index 0 must lower than -1 * n_candidate
+    poss_reponse = [('', -(n_candidate + 5) + i) for i in range(0, n_candidate)]
 
-    with open(filename) as f:
+    with open(filename, 'r') as f:
         while True:
             # read new line
-            line = f.readline().strip()
-            added = False
+            line = f.readline()
 
             if line == '':
                 break
+            elif line.startswith('#') or line == '\n':
+                # check for skip line
+                continue
+
+            line = line.strip()
+            added = False
 
             tmp_line = prep_text(line)
             score = __get_score(query=query, res=tmp_line)
@@ -88,6 +91,7 @@ def retrive(query):
 
     return [candidate for (candidate, _) in poss_reponse]
 
+
 # # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
-# query = 'Do you know the history of Beijing?'
-# retrive(query)
+query = 'Do you know the history of Beijing?'
+retrive()
