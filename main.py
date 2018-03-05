@@ -7,7 +7,7 @@ Overall of project
 '''
 
 
-from src import filepath as path
+from src import static_variable as path
 from response_retrival.retrival import retrive as Retrive
 from response_ranking.ranking import rank as Rank
 

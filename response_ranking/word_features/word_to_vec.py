@@ -5,12 +5,12 @@ Word Embedding
 of all non-stopword pairs ⟨vSj, vQi⟩.
     vSj represent the word vector of jth word in S and vQj represent the word vector of ith word in Q.
 '''
-from src import filepath as path
+from src import static_variable as path
 import gensim
 from sentence_prepocessing import Sentence_prepocess
 
 # path of google word2vec
-google_w2v_path = path.GOOGLE_WORD_TO_VEC
+google_w2v_path = path.PATH_GOOGLE_WORD_TO_VEC
 
 # Load Google's pre-trained Word2Vec model.
 model = gensim.models.KeyedVectors.load_word2vec_format(google_w2v_path,
