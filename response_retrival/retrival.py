@@ -57,7 +57,7 @@ def retrive(query):
     # the min score at index 0 must lower than -1 * n_candidate
     poss_reponse = [('', -(n_candidate + 5) + i) for i in range(0, n_candidate)]
 
-    with open(filename, 'r') as f:
+    with open(filename, encoding='utf-8') as f:
         while True:
             # read new line
             line = f.readline()
@@ -71,9 +71,10 @@ def retrive(query):
             line = line.strip()
             added = False
 
-            tmp_line = prep_text(line)
-            score = __get_score(query=query, res=tmp_line)
+            # calculate score
+            score = __get_score(query=query, res=prep_text(line))
 
+            # loop for append (sentence, score) to list like a link-list with sorted by score
             for i, (st, st_score) in enumerate(poss_reponse):
                 if i == 0 and score <= st_score:
                     break
@@ -91,7 +92,6 @@ def retrive(query):
 
     return [candidate for (candidate, _) in poss_reponse]
 
-
 # # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
-query = 'Do you know the history of Beijing?'
-retrive()
+# query = 'Do you know the history of Beijing?'
+# retrive(query)

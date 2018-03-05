@@ -19,29 +19,31 @@ def prep_text(txt):
     :param txt: text String
     :return: list of non-stopwords and be a google's vocab
     '''
-    sentence = Sentence(txt.lower()).words
     # loop for filter a non-stopwords and google's vocab
-    return [word for word in sentence if (word not in STOPWORDS and word in model.vocab)]
+    return [word for word in Sentence(txt.lower()).words if word not in STOPWORDS]
 
 def get_score(query, candidate):
     '''
     Calculates the average cosine distance between word embeddings
     :param query: String of query
     :param res: String of candidate
-    :return:
+    :return: Float of average cosine score
     '''
-    tmp_query = prep_text(query)
-    tmp_candidate = prep_text(candidate)
+    query = prep_text(query)
+    candidate = prep_text(candidate)
 
+    count = 0
     sum_cosine = 0.0
-    for word1 in tmp_query:
+    for word1 in query:
         if word1 in model.vocab:
-            for word2 in tmp_candidate:
-                # compute a cosine similarity between 2 word
-                sum_cosine += model.similarity(word1, word2)
+            for word2 in candidate:
+                if word2 in model.vocab:
+                    # compute a cosine similarity between 2 word
+                    sum_cosine += model.similarity(word1, word2)
+                    count += 1
 
     # return a average cosine score
-    return sum_cosine / (len(query) * len(candidate))
+    return sum_cosine / count
 
 # # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
 # given query(Q) and candidate(S)
