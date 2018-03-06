@@ -5,11 +5,15 @@ Word Embedding
 of all non-stopword pairs ⟨vSj, vQi⟩.
     vSj represent the word vector of jth word in S and vQj represent the word vector of ith word in Q.
 '''
-from src.static_variable import STOPWORDS, load_word_embedding
+from src.static_variable import load_stopwords, load_word_embedding
 from textblob import Sentence
+
+# get set of english stopwords
+STOPWORDS = load_stopwords()
 
 # load pre-trained Word Embedding model
 WORD_EMB = load_word_embedding(load_glove=True)
+
 
 def prep_text(txt):
     '''

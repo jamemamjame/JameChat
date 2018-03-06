@@ -1,7 +1,6 @@
 '''
 File Path Server
 '''
-from nltk.corpus import stopwords
 
 # path of google word2vec
 __PATH_GOOGLE_WORD2VEC = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/Resource/GoogleNews-vectors-negative300.bin'
@@ -10,7 +9,11 @@ __PATH_GLOVE = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/Res
 # path of sentence corpus
 PATH_DOCUMENT = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/Dataset/document/beijing.txt'
 
-STOPWORDS = set(stopwords.words('english'))
+
+def load_stopwords():
+    from nltk.corpus import stopwords
+    return set(stopwords.words('english'))
+
 
 def load_word_embedding(load_glove=True):
     from gensim.models import KeyedVectors

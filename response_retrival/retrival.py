@@ -3,8 +3,11 @@ Retrieval
 --------
 score by most shared non-stopwords
 '''
-from src.static_variable import PATH_DOCUMENT, STOPWORDS
+from src.static_variable import PATH_DOCUMENT, load_stopwords
 from textblob import Sentence, Word
+
+# get set of english stopwords
+STOPWORDS = load_stopwords()
 
 # define a dict of part of speech (POS) mapping
 NOUN, VERB, ADJ, ADV = 'n', 'v', 'j', 'r'
