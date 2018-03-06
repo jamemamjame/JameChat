@@ -1,17 +1,17 @@
 '''
-Retrival
+Retrieval
 --------
 score by most shared non-stopwords
 '''
-from src.static_variable import PATH_DOCUMENT, POSMAP, STOPWORDS
+from src.static_variable import PATH_DOCUMENT, STOPWORDS
 from textblob import Sentence, Word
 
-# file of a sentence in document
-filename = PATH_DOCUMENT
-n_candidate = 5
+# size of candidate that want to retrieve
+N_CANDIDATE = 5
 
-# get a dict of POS map
-_POSMAP = POSMAP
+# define a dict of part of speech (POS) mapping
+NOUN, VERB, ADJ, ADV = 'n', 'v', 'j', 'r'
+POSMAP = {'N': NOUN, 'V': VERB, 'j': ADJ, 'r': ADV}
 
 
 def prep_text(txt):
@@ -26,7 +26,7 @@ def prep_text(txt):
         if word in STOPWORDS:
             continue
 
-        if pos[0] in _POSMAP.keys():
+        if pos[0] in POSMAP.keys():
             word_list.append(Word(word).lemmatize(POSMAP[pos[0]]))
         else:
             word_list.append(word)
@@ -43,7 +43,7 @@ def __get_score(query, res):
     return len(set(query).intersection(set(res))) / (len(query) + len(res))
 
 
-def retrive(query):
+def Retrieve(query):
     '''
     Retrieve a set of sentence that have a chance to be a best response given query
     :param query: String of query (question)
@@ -55,9 +55,9 @@ def retrive(query):
     # list of (response, score) that have top score
     # this list is ascending sorted
     # the min score at index 0 must lower than -1 * n_candidate
-    poss_reponse = [('', -(n_candidate + 5) + i) for i in range(0, n_candidate)]
+    poss_reponse = [('', -(N_CANDIDATE + 5) + i) for i in range(0, N_CANDIDATE)]
 
-    with open(filename, encoding='utf-8') as f:
+    with open(PATH_DOCUMENT, encoding='utf-8') as f:
         for line in f:
             # check for skip line
             if line.startswith('#') or line == '\n':

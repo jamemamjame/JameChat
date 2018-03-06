@@ -7,8 +7,8 @@ Overall of project
 '''
 
 from src import static_variable as path
-from response_retrival.retrival import retrive as Retrive
-from response_ranking.ranking import rank as Rank
+from response_retrival.retrival import Retrieve as Retrive
+from response_ranking.ranking import Rank as Rank
 
 # assume the user query
 query = 'Do you know the history of Beijing?'

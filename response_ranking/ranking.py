@@ -10,7 +10,7 @@ import response_ranking.word_features.word_to_vec as W2V
 import response_ranking.word_features.word_matching as WM
 
 
-def rank(query, candidates):
+def Rank(query, candidates):
     '''
     Rank the sentence in candidates set from high->low score
     :param query: String of query
@@ -51,6 +51,7 @@ def rank(query, candidates):
 #     "Vladimir Putin is working hard to fix the economy in Russia as the Ruble has tumbled.",
 #     "What's the future of Abenomics? We asked Shinzo Abe for his views",
 #     "Obama has eased sanctions on Cuba while accelerating those against the Russian Economy, even as the Ruble's value falls almost daily.",
-#     "Vladimir Putin is riding a horse while hunting deer. Vladimir Putin always seems so serious about things - even riding horses. Is he crazy?",
+#     "Vladimir Putin is riding a horse while hunting deer. ",
+#     "Vladimir Putin always seems so serious about things - even riding horses. Is he crazy?",
 # ]
-# results = rank(query, candidates)
+# results = Rank(query, candidates)

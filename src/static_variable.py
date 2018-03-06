@@ -9,7 +9,4 @@ PATH_GOOGLE_WORD2VEC = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PRO
 # path of sentence corpus
 PATH_DOCUMENT = './src/beijing.txt'
 
-
-NOUN, VERB, ADJ, ADV = 'n', 'v', 'j', 'r'
-POSMAP = {'N': NOUN, 'V': VERB, 'j': ADJ, 'r': ADV}
 STOPWORDS = set(stopwords.words('english'))
