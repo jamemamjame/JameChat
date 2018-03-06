@@ -7,6 +7,6 @@ from nltk.corpus import stopwords
 # path of google word2vec
 PATH_GOOGLE_WORD2VEC = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/Resource/GoogleNews-vectors-negative300.bin'
 # path of sentence corpus
-PATH_DOCUMENT = './src/beijing.txt'
+PATH_DOCUMENT = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/Dataset/document/beijing.txt'
 
 STOPWORDS = set(stopwords.words('english'))
