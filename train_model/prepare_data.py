@@ -46,5 +46,5 @@ def generate_dialogs_embedding(dialogs):
         tmp_dialogs.append(word_emb_list)
 
     # padding a word that lower than max_words
-    return sequence.pad_sequences(tmp_dialogs, maxlen=max_words, dtype=np.float64)
+    return sequence.pad_sequences(tmp_dialogs, maxlen=MAX_WORD, dtype=np.float64)
 
