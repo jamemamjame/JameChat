@@ -6,9 +6,6 @@ score by most shared non-stopwords
 from src.static_variable import PATH_DOCUMENT, STOPWORDS
 from textblob import Sentence, Word
 
-# size of candidate that want to retrieve
-N_CANDIDATE = 5
-
 # define a dict of part of speech (POS) mapping
 NOUN, VERB, ADJ, ADV = 'n', 'v', 'j', 'r'
 POSMAP = {'N': NOUN, 'V': VERB, 'j': ADJ, 'r': ADV}
@@ -33,7 +30,7 @@ def prep_text(txt):
     return word_list
 
 
-def __get_score(query, res):
+def get_score(query, res):
     '''
     :param query: list of pure word
     :param res: list of pure word
@@ -43,10 +40,11 @@ def __get_score(query, res):
     return len(set(query).intersection(set(res))) / (len(query) + len(res))
 
 
-def Retrieve(query):
+def Retrieve(query, n_candidate=5):
     '''
     Retrieve a set of sentence that have a chance to be a best response given query
     :param query: String of query (question)
+    :param n_candidate: size of candidate that want to retrieve
     :return: set of candidate response
     '''
     # extract a non-stopword and stem word
@@ -55,7 +53,7 @@ def Retrieve(query):
     # list of (response, score) that have top score
     # this list is ascending sorted
     # the min score at index 0 must lower than -1 * n_candidate
-    poss_reponse = [('', -(N_CANDIDATE + 5) + i) for i in range(0, N_CANDIDATE)]
+    poss_reponse = [('', -(n_candidate + 5) + i) for i in range(0, n_candidate)]
 
     with open(PATH_DOCUMENT, encoding='utf-8') as f:
         for line in f:
@@ -67,7 +65,7 @@ def Retrieve(query):
             added = False
 
             # calculate score
-            score = __get_score(query=query, res=prep_text(line))
+            score = get_score(query=query, res=prep_text(line))
 
             # loop for append (sentence, score) to list like a link-list with sorted by score
             for i, (st, st_score) in enumerate(poss_reponse):

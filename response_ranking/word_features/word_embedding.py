@@ -5,14 +5,12 @@ Word Embedding
 of all non-stopword pairs ⟨vSj, vQi⟩.
     vSj represent the word vector of jth word in S and vQj represent the word vector of ith word in Q.
 '''
-from src.static_variable import PATH_GOOGLE_WORD2VEC, STOPWORDS
-import gensim
-
+from src.static_variable import STOPWORDS, load_word_embedding
 from textblob import Sentence
 
-# load Google's pre-trained Word2Vec model
-model = gensim.models.KeyedVectors.load_word2vec_format(PATH_GOOGLE_WORD2VEC,
-                                                        binary=True)
+# load pre-trained Word Embedding model
+WORD_EMB = load_word_embedding(load_glove=True)
+
 def prep_text(txt):
     '''
     Process a text string to a list of non-stopwords, be a google's vocab
@@ -21,6 +19,7 @@ def prep_text(txt):
     '''
     # loop for filter a non-stopwords and google's vocab
     return [word for word in Sentence(txt.lower()).words if word not in STOPWORDS]
+
 
 def get_score(query, candidate):
     '''
@@ -35,11 +34,11 @@ def get_score(query, candidate):
     count = 0
     sum_cosine = 0.0
     for word1 in query:
-        if word1 in model.vocab:
+        if word1 in WORD_EMB.vocab:
             for word2 in candidate:
-                if word2 in model.vocab:
+                if word2 in WORD_EMB.vocab:
                     # compute a cosine similarity between 2 word
-                    sum_cosine += model.similarity(word1, word2)
+                    sum_cosine += WORD_EMB.similarity(word1, word2)
                     count += 1
 
     # return a average cosine score

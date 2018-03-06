@@ -2,3 +2,5 @@
 __pycache__
 google_word2vec
 test_*.py
+self_test/*
+self_test

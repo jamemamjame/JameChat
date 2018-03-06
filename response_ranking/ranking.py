@@ -6,7 +6,7 @@ Rank(S,Q)= Zigma[ λk · hk(S,Q) ]
 '''
 
 # Importing the library
-import response_ranking.word_features.word_to_vec as W2V
+import response_ranking.word_features.word_embedding as W2V
 import response_ranking.word_features.word_matching as WM
 
 
@@ -30,10 +30,6 @@ def Rank(query, candidates):
     results = sorted(results, key=lambda x: x[1], reverse=True)
     return results
 
-
-'''
-ต้องเอา Q ไปเทสกับฟีเจอร์ต่างๆ แล้วนำคะแนนที่ได้มาใส่เป็นเวกเตอร์ แล้วนำไปโยนให้โมเดลอีกตัวทำนาย
-'''
 # # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
 # given query(Q), candidate(S) and candidates(D)
 # query = 'Do you know the history of Beijing?'
