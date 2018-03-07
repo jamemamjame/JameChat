@@ -26,25 +26,25 @@ def cnn_model_fn(features, labels, mode, params):
 
     with tf.variable_scope("embedding"):
         # shape = (maxwords, emb_dim, n_filter=10)
-        emb_w = tf.get_variable("emb_w", shape=[params['n_maxword'], params['n_emb_dim'], n_filter],
+        emb_w = tf.get_variable("emb_w", shape=[params['n_maxword'], params['emb_dim'], n_filter],
                                 initializer=tf.random_normal_initializer)
-        emb_b = tf.get_variable("emb_b", shape=[params['n_maxword'], params['n_emb_dim'], n_filter],
+        emb_b = tf.get_variable("emb_b", shape=[params['n_maxword'], params['emb_dim'], n_filter],
                                 initializer=tf.zeros_initializer)
 
-    # Convolutional Layer (try to embed query with the same weight on response)
+    # Convolution Layer (try to embed query with the same weight on response)
     conv_query = tf.layers.conv2d(
         inputs=query,
         filters=emb_w,
-        kernel_size=[1, params['n_emb_dim']],
+        kernel_size=[1, params['emb_dim']],
         padding="same",
         strides=[0, 1],
         activation=tf.nn.relu,
     )
     # Pooling Layer #1
     # pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
-    pool_query = tf.layers.max_pooling2d(inputs=conv_query, pool_size=[])
+    pool_query = tf.layers.max_pooling2d(inputs=conv_query, pool_size=[1, params['emb_dim']])
 
-    # Convolutional Layer (try to embed response with the same weight on query)
+    # Convolution Layer (try to embed response with the same weight on query)
     conv_response = tf.layers.conv2d(
         inputs=query,
         filters=emb_w,
