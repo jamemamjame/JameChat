@@ -22,7 +22,8 @@ WORD_EMB = load_word_embedding(load_glove=True)
 # constant of maximum number of word in sentence (important when padding)
 MAX_WORD = 20
 
-def prep_text(txt):
+
+def generate_wordlist_emb(txt):
     '''
     Process a text string to list of embedded word
     'I love you' -> ['I', 'love', 'you'] -> list([emb('I'), emb('love'), emb('you')])
@@ -35,16 +36,27 @@ def prep_text(txt):
         if word in WORD_EMB.vocab:
             wordlist.append(WORD_EMB[word])
         else:
-            # shape is depend on
-            wordlist.append(np.full(shape=[100], fill_value=0.0, dtype=np.float64))
+            # shape is depend on embedding dimension
+            # use [1., 1., 1., ...] represent a unknown word
+            wordlist.append(np.full(shape=[100], fill_value=1.0, dtype=np.float32))
     return wordlist
+
+
+def generate_sentence_embedding(sentence):
+    # get list of embedded words
+    new_sentence = generate_wordlist_emb(sentence)
+
+    # padding a sentence by add 0 value at the front until sentence's length = max_word
+    return sequence.pad_sequences([new_sentence], maxlen=MAX_WORD, dtype=np.float32)[0]
+
 
 def generate_dialogs_embedding(dialogs):
     tmp_dialogs = []
     for sentence in dialogs:
-        word_emb_list = prep_text(sentence)
-        tmp_dialogs.append(word_emb_list)
+        tmp_dialogs.append(generate_sentence_embedding(sentence))
 
     # padding a word that lower than max_words
-    return sequence.pad_sequences(tmp_dialogs, maxlen=MAX_WORD, dtype=np.float64)
+    return np.array(tmp_dialogs)
 
+
+dialogs_emb = generate_dialogs_embedding(dialogs)
