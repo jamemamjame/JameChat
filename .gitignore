@@ -4,3 +4,4 @@ google_word2vec
 test_*.py
 self_test/*
 self_test
+train_model/_model

@@ -2,7 +2,7 @@
 Ranking
 -------
 
-Rank(S,Q)= Zigma[ λk · hk(S,Q) ]
+Rank(S,Q)= ∑[ λk · hk(S,Q) ]
 '''
 
 # Importing the library
