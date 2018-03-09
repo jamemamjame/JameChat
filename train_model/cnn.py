@@ -9,14 +9,13 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 def cnn_embedding(features, labels, mode, params):
     '''
-
     :param features: sentence features with shape (batch_size, max_words, dim_of_word)
     :param labels: nothing
     :param mode:
     :param params:
     :return:
     '''
-    print('Current mode: %s' % mode)
+    print('CURRENT MODE: %s' % mode.upper())
 
     with tf.variable_scope("embedding"):
         # Define Filter or Kernel
@@ -80,11 +79,13 @@ def cnn_embedding(features, labels, mode, params):
 
     loss = None
     train_op = None
-    cosine_sim_pos = None
+    predictions = None
 
-    # Calculate Loss (for TRAIN modes)
-    if mode == ModeKeys.TRAIN:
-        query = features['query']
+    # every mode must push query be one of features dict
+    query = features['query']
+
+    # Calculate Loss (for TRAIN, EVAL modes)
+    if mode != ModeKeys.INFER:
         pos_response = features['pos_response']
         neg_response = features['neg_response']
 
@@ -106,8 +107,11 @@ def cnn_embedding(features, labels, mode, params):
 
         # final loss
         M = params['M']
-        loss = tf.maximum(0., M + total_loss)
+        # loss = tf.maximum(0., M + total_loss)
+        loss = total_loss
 
+    # Configure the Training Optimizer (for TRAIN modes)
+    if mode == ModeKeys.TRAIN:
         # configuration the training Op
         train_op = tf.contrib.layers.optimize_loss(
             loss=loss,
@@ -122,30 +126,13 @@ def cnn_embedding(features, labels, mode, params):
             ]
         )
 
-    # Calculate Loss (for EVAL modes)
-    if mode == ModeKeys.EVAL:
-        query = features['query']
-        pos_response = features['pos_response']
-
-        # get embedded vector: output.shape = [n_sample , emb_dim]
-        vec1 = embed_sentence(query)  # query
-        vec2 = embed_sentence(pos_response)  # pos_response
-
-        # calculate cosine similarity of each vec pairs, output.shape = [n_sample, ]
-        cosine_sim_pos = cosine_similarity(vec1, vec2)  # need a large value
-
-        # sum all loss. get output be scalar
-        loss = tf.reduce_sum(cosine_sim_pos)
-
-    # # Calculate Loss (for TRAIN modes)
-    # if mode == ModeKeys.INFER:
-    #     query = features['query']
-
     # Generate Predictions which is a embedding of given sentence
     predictions = {'emb_vec': embed_sentence(query)}
-    # Generate a
+
+    # Generate a eval metric consist of loss
+    # This metric will be constructed when we train, validate
     eval_metric_ops = {
-        'cos_sim': cosine_sim_pos
+        'loss': loss
     }
 
     # Return a ModelFnOps object
@@ -166,35 +153,30 @@ n_test_sample = 20
 training_batch_size = 5
 test_batch_size = 2
 
-# define a fake dataset
-train_query = np.random.rand(n_train_sample, max_word, emb_dim, n_chanel).astype(np.float32)
-train_pos_response = np.random.rand(n_train_sample, max_word, emb_dim, n_chanel).astype(np.float32)
-train_neg_response = np.random.rand(n_train_sample, max_word, emb_dim, n_chanel).astype(np.float32)
-
-test_query = np.random.rand(n_test_sample, max_word, emb_dim, n_chanel).astype(np.float32)
-test_pos_response = np.random.rand(n_test_sample, max_word, emb_dim, n_chanel).astype(np.float32)
-test_neg_response = np.random.rand(n_test_sample, max_word, emb_dim, n_chanel).astype(np.float32)
-
 # define a fake dict of dataset
 training_dict = {
-    'query': train_query,
-    'pos_response': train_pos_response,
-    'neg_response': train_neg_response
+    'query': np.random.rand(n_train_sample, max_word, emb_dim, n_chanel).astype(np.float32),
+    'pos_response': np.random.rand(n_train_sample, max_word, emb_dim, n_chanel).astype(np.float32),
+    'neg_response': np.random.rand(n_train_sample, max_word, emb_dim, n_chanel).astype(np.float32)
 }
 testing_dict = {
-    'query': test_query,
-    'pos_response': test_pos_response,
-    'neg_response': test_neg_response
+    'query': np.random.rand(n_test_sample, max_word, emb_dim, n_chanel).astype(np.float32),
+    'pos_response': np.random.rand(n_test_sample, max_word, emb_dim, n_chanel).astype(np.float32),
+    'neg_response': np.random.rand(n_test_sample, max_word, emb_dim, n_chanel).astype(np.float32)
+}
+predict_dict = {
+    'query': np.random.rand(1, max_word, emb_dim, n_chanel).astype(np.float32),
 }
 
 # Train by step, not epoch
 train_input_fn = numpy_input_fn(x=training_dict, y=np.zeros(shape=[n_train_sample, 1], dtype=np.float32),
                                 batch_size=training_batch_size, shuffle=True, num_epochs=None)
 test_input_fn = numpy_input_fn(x=testing_dict, y=np.zeros(shape=[n_test_sample, 1], dtype=np.float32),
-                               batch_size=5, shuffle=True, num_epochs=None)
+                               batch_size=test_batch_size, shuffle=True, num_epochs=None)
+predict_input_fn = numpy_input_fn(x=predict_dict, shuffle=False, num_epochs=None, batch_size=1)
 
-validation_monitor = monitors.ValidationMonitor(input_fn=test_input_fn, eval_steps=1, every_n_steps=10,
-                                                name='validation')
+# validation test on testing data every_n_step or every save_checkpoints_secs
+validation_monitor = monitors.ValidationMonitor(input_fn=test_input_fn, every_n_steps=50, name='validation')
 # ======================================================================
 model_params = dict(
     learning_rate=0.05,
@@ -204,10 +186,10 @@ model_params = dict(
 # Training model is ran by step, not epoch
 sentence_embedder = Estimator(model_fn=cnn_embedding,
                               model_dir='./train_model/_model/sentence_emb',
-                              config=RunConfig(save_summary_steps=10,
-                                               keep_checkpoint_max=2,
-                                               save_checkpoints_secs=15),
+                              config=RunConfig(save_checkpoints_secs=4),
                               params=model_params,
                               feature_engineering_fn=None)
 
-sentence_embedder.fit(input_fn=train_input_fn, steps=300, monitors=[validation_monitor])
+# Train the model with n_step step and do validation test
+sentence_embedder.fit(input_fn=train_input_fn, steps=2000, monitors=[validation_monitor])
+pred = sentence_embedder.predict(input_fn=predict_input_fn, as_iterable=False)
