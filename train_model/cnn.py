@@ -28,6 +28,14 @@ def cnn_embedding(features, labels, mode, params):
             tf.summary.histogram(name=v.name.replace(':0', ''), values=v)
 
     def embed_sentence(x):
+        '''
+        Embed sequence of word_vector
+            conv -> max_pooling -> flatten -> *dropout -> dense(unit=embed_dim)
+
+            *dropout only used in TRAIN mode
+        :param x:
+        :return:
+        '''
         convol = tf.nn.conv2d(
             input=x,
             filter=emb_w,
@@ -54,7 +62,7 @@ def cnn_embedding(features, labels, mode, params):
     def cosine_similarity(vec1, vec2):
         '''
         calculate cosine_similarity of each sample
-        by reduce_sum(from A•B) / (norm(A) * norm(B))
+        by A•B / (norm(A) * norm(B))
         :param vec1: batch of vector1
         :param vec2: batch of vector2
         :return:
@@ -79,7 +87,6 @@ def cnn_embedding(features, labels, mode, params):
 
     loss = None
     train_op = None
-    predictions = None
 
     # every mode must push query be one of features dict
     query = features['query']
