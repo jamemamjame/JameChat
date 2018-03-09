@@ -114,8 +114,7 @@ def cnn_embedding(features, labels, mode, params):
 
         # final loss
         M = params['M']
-        # loss = tf.maximum(0., M + total_loss)
-        loss = total_loss
+        loss = tf.maximum(0., M + total_loss)
 
     # Configure the Training Optimizer (for TRAIN modes)
     if mode == ModeKeys.TRAIN:
