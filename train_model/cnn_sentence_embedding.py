@@ -2,8 +2,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.contrib import layers
 from tensorflow.contrib.learn import *
-from tensorflow.python.estimator.inputs.numpy_io import numpy_input_fn
-import os
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -150,11 +148,16 @@ def cnn_embedding(features, labels, mode, params):
 
 
 def get_sentence_embedder():
-    return Estimator(model_fn=cnn_embedding,
-                     model_dir=PATH_CNN_SENTENCE_EMB,
-                     config=RunConfig(save_checkpoints_secs=4, keep_checkpoint_max=3),
-                     params=model_params,
-                     feature_engineering_fn=None)
+    '''
+    Get a SKCompat it a class that can use .fit() for train || .score() for evaluate|| .predict() for predict
+    :return: SKCompat model
+    '''
+    return SKCompat(Estimator(model_fn=cnn_embedding,
+                              model_dir=PATH_CNN_SENTENCE_EMB,
+                              config=RunConfig(save_checkpoints_secs=30),
+                              params=model_params,
+                              feature_engineering_fn=None))
+
 
 # path of cnn sentence embedding
 PATH_CNN_SENTENCE_EMB = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/JameChat/train_model/_model/cnn_sentence_emb'
@@ -162,7 +165,7 @@ PATH_CNN_SENTENCE_EMB = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PR
 n_filter = 10  # n_filter is used to capture N phrase in any position in sentence
 n_grams = 2  # n_grams is used to group N word be 1 phrase
 max_word = 20
-emb_dim = 100   # embedding size in word2vec
+emb_dim = 100  # embedding size in word2vec
 n_chanel = 1
 n_train_sample = 100
 n_test_sample = 20
@@ -200,28 +203,21 @@ def get_simulation_data():
         'seq1': np.random.rand(1, max_word, emb_dim, n_chanel).astype(np.float32),
     }
 
-    # Train by step, not epoch
-    train_input_fn = numpy_input_fn(x=training_dict, y=np.zeros(shape=[n_train_sample, 1], dtype=np.float32),
-                                    batch_size=training_batch_size, shuffle=True, num_epochs=None)
-    test_input_fn = numpy_input_fn(x=testing_dict, y=np.zeros(shape=[n_test_sample, 1], dtype=np.float32),
-                                   batch_size=test_batch_size, shuffle=True, num_epochs=None)
-    predict_input_fn = numpy_input_fn(x=predict_dict, shuffle=False, num_epochs=None, batch_size=1)
-
-    return train_input_fn, test_input_fn, predict_input_fn
+    return training_dict, testing_dict, predict_dict
 
 
 # ======================================================================
 # # # # # # # # # # # # # # # # # TRAIN MODEL # # # # # # # # # # # # # # #
-# train_input_fn, test_input_fn, predict_input_fn = get_simulation_data()
-# #
-# # validation test on testing data every_n_step or every save_checkpoints_secs
-# # validation_monitor = monitors.ValidationMonitor(input_fn=test_input_fn, every_n_steps=100, name='validation')
-# #
+training_dict, testing_dict, predict_dict = get_simulation_data()
+#
+# validation test on testing data every_n_step or every save_checkpoints_secs
+validation_monitor = monitors.ValidationMonitor(x=testing_dict, y=None, every_n_steps=50, name='validation')
+#
 # # Training model is ran by step, not epoch
-# sentence_embedder = get_sentence_embedder()
-
+sentence_embedder = get_sentence_embedder()
+#
 # # Train the model with n_step step and do validation test
-# sentence_embedder.fit(input_fn=train_input_fn, steps=20, monitors=None)
-
-# Try to predict
+sentence_embedder.fit(x=training_dict, y=None, batch_size=training_batch_size, steps=100, monitors=None)
+#
+# # Try to predict
 # pred = sentence_embedder.predict(input_fn=predict_input_fn, as_iterable=False)
