@@ -8,6 +8,7 @@ Rank(S,Q)= ∑[ λk · hk(S,Q) ]
 # Importing the library
 import response_ranking.word_features.word_embedding as W2V
 import response_ranking.word_features.word_matching as WM
+import response_ranking.sentence_features.causality_relationship as CSULTY
 
 
 def Rank(query, candidates):
@@ -23,7 +24,8 @@ def Rank(query, candidates):
 
     # loop for calculate score of each candidate
     for candidate in candidates:
-        score = W2V.get_score(query, candidate) + WM.get_score(query, candidate, candidates)
+        score = W2V.get_score(query, candidate) + WM.get_score(query, candidate, candidates) \
+                + CSULTY.get_score(query, candidate)
         results.append((candidate, score))
 
     # sorted a scores list by key = score

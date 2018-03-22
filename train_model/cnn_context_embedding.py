@@ -1,3 +1,6 @@
+'''
+ยังไม่ได้ทำ
+'''
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib import layers
@@ -18,8 +21,6 @@ def cnn_sentence_embedding(features, labels, mode, params):
     :return:
     '''
     print('CURRENT MODE: %s' % mode.upper())
-
-    M = params['M']     # a constant
 
     with tf.variable_scope("embedding"):
         # Define Filter or Kernel
@@ -117,6 +118,7 @@ def cnn_sentence_embedding(features, labels, mode, params):
         # tf.summary.scalar('total_loss', total_loss)
 
         # final loss
+        M = params['M']
         loss = tf.maximum(0., M + total_loss)
 
     # Configure the Training Optimizer (for TRAIN modes)
@@ -167,7 +169,7 @@ PATH_CNN_SENTENCE_EMB = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PR
 n_filter = 10  # n_filter is used to capture N phrase in any position in sentence
 n_grams = 2  # n_grams is used to group N word be 1 phrase
 max_word = 20
-emb_dim = 150  # embedding size in word2vec
+emb_dim = 100  # embedding size in word2vec
 n_chanel = 1
 n_train_sample = 100
 n_test_sample = 20

@@ -1,12 +1,12 @@
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib import layers
+from tensorflow.contrib import layers, rnn
 from tensorflow.contrib.learn import *
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
-def cnn_sentence_embedding(features, labels, mode, params):
+def lstm_sentence_embedding(features, labels, mode, params):
     '''
     :param features: dict of sentence features with shape (batch_size, max_words, dim_of_word)
     features['seq1'] return batch of query sentence
@@ -19,49 +19,39 @@ def cnn_sentence_embedding(features, labels, mode, params):
     '''
     print('CURRENT MODE: %s' % mode.upper())
 
-    M = params['M']     # a constant
+    emb_size = 128
+    n_hidden_units = 128
+    M = params['M']  # a constant
 
     with tf.variable_scope("embedding"):
-        # Define Filter or Kernel
-        # shape = max_words * emb_dim * n_filter
-        emb_w = tf.get_variable("emb_w", shape=[n_grams, emb_dim, n_chanel, n_filter],
-                                initializer=tf.random_normal_initializer)
-        emb_b = tf.get_variable("emb_b", shape=[n_filter],
-                                initializer=tf.zeros_initializer)
+        # create a LSTM cell
+        cell = rnn.LSTMCell(num_units=n_hidden_units)
+        projection_cell = rnn.OutputProjectionWrapper(cell=cell, output_size=emb_size, activation=tf.nn.relu)
+
+        # # set initial state
+        # # LSTM cell is divided into 2 parts in 1 tuple: (c_state, h_state)
+        # init_state = projection_cell.zero_state(batch_size=training_batch_size, dtype=tf.float32)
+
         for v in tf.trainable_variables():
             tf.summary.histogram(name=v.name.replace(':0', ''), values=v)
 
     def embed_sentence(x):
-        '''
-        Embed sequence of word_vector
-            conv -> max_pooling -> flatten -> *dropout -> dense(unit=embed_dim)
+        # (outputs, final_state) is returned from tf.nn.dynamic_rnn()
+        # outputs is an collection of all outputs in every step emitted which shape = (batch, time_step, n_output_size)
+        # final_state = (c_state, h_state) final
+        # but in this project, we care only outputs
+        outputs, _ = tf.nn.dynamic_rnn(cell=projection_cell, inputs=x, time_major=False, dtype=tf.float32)
 
-            *dropout only used in TRAIN mode
-        :param x:
-        :return:
-        '''
-        convol = tf.nn.conv2d(
-            input=x,
-            filter=emb_w,
-            padding="SAME",
-            strides=[1, 1, 1, 1],  # must use [1, ?, ?, 1]
-        )
-        convol = tf.nn.relu(convol + emb_b)
+        # transpose (batch, time_step, n_output_size) -> (time_step, batch, n_output_size)
+        #   ↳ unpack to list [(batch, outputs)..] * steps
+        outputs = tf.transpose(outputs, [1, 0, 2])
 
-        # Pooling, output.shape = n_sample * max_word * 1 * n_filter
-        pooling = tf.nn.max_pool(convol, ksize=[1, 1, emb_dim, 1], strides=[1, 1, 1, 1], padding="VALID")
+        # get the last output from last time_step only.
+        # shape = (batch, n_output_size)
+        outputs = outputs[-1]
 
-        # Dense layer
-        # reshape [n_samples, max_word, 1, n_filter] ->> [n_samples, max_word * 1 * n_filter]
-        # pool_flat = tf.reshape(pooling, shape=[-1, max_word * 1 * n_filter])
-        pool_flat = layers.flatten(pooling)
-        dropout = tf.layers.dropout(inputs=pool_flat, rate=params['drop_out_rate'], training=(mode == ModeKeys.TRAIN))
-
-        # how many dim of vector for represent this sentence (x)
-        embed_dim = 50
-        dense = tf.layers.dense(inputs=dropout, units=embed_dim, activation=tf.nn.relu)
-
-        return dense
+        # assume that this outputs is a vector
+        return outputs
 
     def cosine_similarity(vec1, vec2):
         '''
@@ -153,20 +143,21 @@ def get_sentence_embedder():
     Get a SKCompat it a class that can use .fit() for train || .score() for evaluate|| .predict() for predict
     :return: SKCompat model
     '''
-    return SKCompat(Estimator(model_fn=cnn_sentence_embedding,
-                              model_dir=PATH_CNN_SENTENCE_EMB,
+    return SKCompat(Estimator(model_fn=lstm_sentence_embedding,
+                              model_dir=PATH_LSTM_SENTENCE_EMB,
                               config=RunConfig(save_checkpoints_secs=300, keep_checkpoint_max=3),
                               params=model_params,
                               feature_engineering_fn=None
                               ))
 
 
-# path of cnn sentence embedding
-PATH_CNN_SENTENCE_EMB = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/JameChat/train_model/_model/cnn_sentence_emb'
+# path of LSTM sentence embedding
+PATH_LSTM_SENTENCE_EMB = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/JameChat/train_model/_model/lstm_sentence_emb'
 
 n_filter = 10  # n_filter is used to capture N phrase in any position in sentence
 n_grams = 2  # n_grams is used to group N word be 1 phrase
 max_word = 20
+time_steps = max_word
 emb_dim = 150  # embedding size in word2vec
 n_chanel = 1
 n_train_sample = 100
@@ -192,17 +183,17 @@ def get_simulation_data():
     '''
     # define a fake dict of dataset
     training_dict = {
-        'seq1': np.random.rand(n_train_sample, max_word, emb_dim, n_chanel).astype(np.float32),
-        'seq2': np.random.rand(n_train_sample, max_word, emb_dim, n_chanel).astype(np.float32),
-        'seq3': np.random.rand(n_train_sample, max_word, emb_dim, n_chanel).astype(np.float32)
+        'seq1': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
+        'seq2': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
+        'seq3': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
     }
     testing_dict = {
-        'seq1': np.random.rand(n_test_sample, max_word, emb_dim, n_chanel).astype(np.float32),
-        'seq2': np.random.rand(n_test_sample, max_word, emb_dim, n_chanel).astype(np.float32),
-        'seq3': np.random.rand(n_test_sample, max_word, emb_dim, n_chanel).astype(np.float32)
+        'seq1': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
+        'seq2': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
+        'seq3': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
     }
     predict_dict = {
-        'seq1': np.random.rand(1, max_word, emb_dim, n_chanel).astype(np.float32),
+        'seq1': np.random.rand(1, time_steps, emb_dim).astype(np.float32),
     }
 
     return training_dict, testing_dict, predict_dict
@@ -220,7 +211,7 @@ training_dict, testing_dict, predict_dict = get_simulation_data()
 sentence_embedder = get_sentence_embedder()
 #
 # # Train the model with n_step step and do validation test
-# sentence_embedder.fit(x=training_dict, y=None, batch_size=training_batch_size, steps=100, monitors=None)
+sentence_embedder.fit(x=training_dict, y=None, batch_size=training_batch_size, steps=2, monitors=None)
 #
 # # Try to predict
-# pred = sentence_embedder.predict(input_fn=predict_input_fn, as_iterable=False)
+# pred = sentence_embedder.predict(x=predict_dict, batch_size=1)
