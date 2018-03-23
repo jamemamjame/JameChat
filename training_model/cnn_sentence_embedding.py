@@ -19,7 +19,7 @@ def cnn_sentence_embedding(features, labels, mode, params):
     '''
     print('CURRENT MODE: %s' % mode.upper())
 
-    M = params['M']     # a constant
+    M = params['M']  # a constant for computed with loss
 
     with tf.variable_scope("embedding"):
         # Define Filter or Kernel
@@ -100,7 +100,7 @@ def cnn_sentence_embedding(features, labels, mode, params):
         seq2 = features['seq1']  # get a pos_response
         seq3 = features['seq3']  # get a neg_response
 
-        # get embedded vector: output.shape = [n_sample , emb_dim]
+        # get embedded vector: output.shape = [n_sample, emb_dim]
         vec1 = embed_sentence(seq1)  # query
         vec2 = embed_sentence(seq2)  # pos_response
         vec3 = embed_sentence(seq3)  # neg_response
@@ -162,7 +162,7 @@ def get_sentence_embedder():
 
 
 # path of cnn sentence embedding
-PATH_CNN_SENTENCE_EMB = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/JameChat/train_model/_model/cnn_sentence_emb'
+PATH_CNN_SENTENCE_EMB = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/JameChat/training_model/_model/cnn_sentence_emb'
 
 n_filter = 10  # n_filter is used to capture N phrase in any position in sentence
 n_grams = 2  # n_grams is used to group N word be 1 phrase

@@ -1,5 +1,5 @@
-from train_model.cnn_sentence_embedding import get_sentence_embedder
-from train_model.word_seq_perp import generate_dialogs_embedding
+from training_model.cnn_sentence_embedding import get_sentence_embedder
+from training_model.word_seq_perp import generate_dialogs_embedding
 from scipy.spatial.distance import cosine
 
 SENTENCE_EMB = get_sentence_embedder()

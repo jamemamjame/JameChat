@@ -1,9 +1,18 @@
+'''
+LSTM Sentence Embedding
+----------------------------------------
+
+ต้องการฝึกสอนโมเดลที่ใช้ฝังประโยค ประโยคหนึ่งให้กลายเป็นเวกเตอร์ตัวหนึ่ง โดยประโยค 2 ประโยคที่เป็นคำถามและคำตอบของกันและกัน
+เมื่อถูกฝังแล้วจะต้องกลายเป็นเวกเตอร์ที่หาค่า cosine_similarity ได้สูงๆ
+โดยการฝึกสอนจะใช้ LSTM ตัวเดียวกัน (weight ตัวเดียวกัน) ในการฝึกสอน ไม่ได้แยกกันมาจากคนละโมเดล
+'''
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib import layers, rnn
 from tensorflow.contrib.learn import *
 
 tf.logging.set_verbosity(tf.logging.INFO)
+tf.set_random_seed(4321)
 
 
 def lstm_sentence_embedding(features, labels, mode, params):
@@ -19,43 +28,45 @@ def lstm_sentence_embedding(features, labels, mode, params):
     '''
     print('CURRENT MODE: %s' % mode.upper())
 
-    emb_size = 128
-    n_hidden_units = 128
-    M = params['M']  # a constant
+    emb_size = 200
+    n_lstm_units = 200  # number of hidden units
+    M = params['M']  # a constant for computed with loss
+    input_keep_prob = params['input_keep_prob']
+    output_keep_prob = params['output_keep_prob']
 
-    with tf.variable_scope("embedding"):
-        # create a LSTM cell
-        cell = rnn.LSTMCell(num_units=n_hidden_units)
+    # create a LSTM cell (only 1 cell but train both query, pos_response, neg_response)
+    with tf.variable_scope("emb_cell"):
+        cell = rnn.LSTMCell(num_units=n_lstm_units)
+        if mode == ModeKeys.TRAIN:
+            cell = rnn.DropoutWrapper(cell=cell, input_keep_prob=input_keep_prob,
+                                      output_keep_prob=output_keep_prob)
         projection_cell = rnn.OutputProjectionWrapper(cell=cell, output_size=emb_size, activation=tf.nn.relu)
-
-        # # set initial state
-        # # LSTM cell is divided into 2 parts in 1 tuple: (c_state, h_state)
-        # init_state = projection_cell.zero_state(batch_size=training_batch_size, dtype=tf.float32)
 
         for v in tf.trainable_variables():
             tf.summary.histogram(name=v.name.replace(':0', ''), values=v)
 
-    def embed_sentence(x):
+    def lstm_embed_sentence(x):
         # (outputs, final_state) is returned from tf.nn.dynamic_rnn()
-        # outputs is an collection of all outputs in every step emitted which shape = (batch, time_step, n_output_size)
-        # final_state = (c_state, h_state) final
+        #     |         └→ final_state = (c_state, h_state) final
+        #     └→ outputs is an collection of all outputs in every step emitted
+        #        which shape = (batch, time_step, n_output_size)
         # but in this project, we care only outputs
         outputs, _ = tf.nn.dynamic_rnn(cell=projection_cell, inputs=x, time_major=False, dtype=tf.float32)
 
         # transpose (batch, time_step, n_output_size) -> (time_step, batch, n_output_size)
-        #   ↳ unpack to list [(batch, outputs)..] * steps
+        #   └→ unpack to list [(batch, outputs)..] * steps
         outputs = tf.transpose(outputs, [1, 0, 2])
 
         # get the last output from last time_step only.
         # shape = (batch, n_output_size)
         outputs = outputs[-1]
 
-        # assume that this outputs is a vector
+        # assume that this outputs is a embed_vector
         return outputs
 
     def cosine_similarity(vec1, vec2):
         '''
-        calculate cosine_similarity of each sample
+        Calculate cosine_similarity of each sample
         by A•B / (norm(A) * norm(B))
         :param vec1: batch of vector1
         :param vec2: batch of vector2
@@ -83,17 +94,18 @@ def lstm_sentence_embedding(features, labels, mode, params):
     train_op = None
 
     # every mode must push seq1 be one of features dict
-    seq1 = features['seq1']
+    seq1 = features[QUERY_KEY]
 
     # Calculate Loss (for TRAIN, EVAL modes)
     if mode != ModeKeys.INFER:
-        seq2 = features['seq1']  # get a pos_response
-        seq3 = features['seq3']  # get a neg_response
+        seq2 = features[POS_RESP_KEY]  # get a pos_response
+        seq3 = features[NEG_RESP_KEY]  # get a neg_response
 
         # get embedded vector: output.shape = [n_sample , emb_dim]
-        vec1 = embed_sentence(seq1)  # query
-        vec2 = embed_sentence(seq2)  # pos_response
-        vec3 = embed_sentence(seq3)  # neg_response
+        with tf.variable_scope('emb_vector'):
+            vec1 = lstm_embed_sentence(seq1)  # query
+            vec2 = lstm_embed_sentence(seq2)  # pos_response
+            vec3 = lstm_embed_sentence(seq3)  # neg_response
 
         # calculate cosine similarity of each vec pairs, output.shape = [n_sample, ]
         cosine_sim_pos = cosine_similarity(vec1, vec2)  # need a large value
@@ -104,7 +116,6 @@ def lstm_sentence_embedding(features, labels, mode, params):
 
         # sum all loss. get output be scalar
         total_loss = tf.reduce_sum(each_loss)
-        # tf.summary.scalar('total_loss', total_loss)
 
         # final loss
         loss = tf.maximum(0., M + total_loss)
@@ -126,16 +137,12 @@ def lstm_sentence_embedding(features, labels, mode, params):
         )
 
     # Generate Predictions which is a embedding of given sentence
-    predictions = {'emb_vec': embed_sentence(seq1)}
-
-    # Generate a eval metric consist of loss
-    # This metric will be constructed when we train, validate
-    eval_metric_ops = {
-        'loss': loss
-    }
+    predictions = {}
+    if mode == ModeKeys.INFER:
+        predictions = {'emb_vec': lstm_embed_sentence(seq1)}
 
     # Return a ModelFnOps object
-    return ModelFnOps(predictions=predictions, loss=loss, train_op=train_op, eval_metric_ops=eval_metric_ops, mode=mode)
+    return ModelFnOps(predictions=predictions, loss=loss, train_op=train_op, eval_metric_ops=None, mode=mode)
 
 
 def get_sentence_embedder():
@@ -147,19 +154,22 @@ def get_sentence_embedder():
                               model_dir=PATH_LSTM_SENTENCE_EMB,
                               config=RunConfig(save_checkpoints_secs=300, keep_checkpoint_max=3),
                               params=model_params,
-                              feature_engineering_fn=None
-                              ))
+                              feature_engineering_fn=None))
 
 
 # path of LSTM sentence embedding
-PATH_LSTM_SENTENCE_EMB = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/JameChat/train_model/_model/lstm_sentence_emb'
+PATH_LSTM_SENTENCE_EMB = './trained_model/lstm_sentence_emb'
+
+QUERY_KEY = 'seq1'
+POS_RESP_KEY = 'seq2'
+NEG_RESP_KEY = 'seq3'
 
 n_filter = 10  # n_filter is used to capture N phrase in any position in sentence
 n_grams = 2  # n_grams is used to group N word be 1 phrase
-max_word = 20
+max_word = 15
 time_steps = max_word
-emb_dim = 150  # embedding size in word2vec
-n_chanel = 1
+w2v_emb_dim = 150  # embedding size in word2vec
+
 n_train_sample = 100
 n_test_sample = 20
 training_batch_size = 5
@@ -167,7 +177,8 @@ test_batch_size = 2
 
 model_params = dict(
     learning_rate=0.05,
-    drop_out_rate=0.2,
+    input_keep_prob=0.85,
+    output_keep_prob=0.85,
     M=training_batch_size * 1 * 0.75
 )
 
@@ -183,17 +194,17 @@ def get_simulation_data():
     '''
     # define a fake dict of dataset
     training_dict = {
-        'seq1': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
-        'seq2': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
-        'seq3': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
+        QUERY_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
+        POS_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
+        NEG_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
     }
     testing_dict = {
-        'seq1': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
-        'seq2': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
-        'seq3': np.random.rand(n_train_sample, time_steps, emb_dim).astype(np.float32),
+        QUERY_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
+        POS_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
+        NEG_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
     }
     predict_dict = {
-        'seq1': np.random.rand(1, time_steps, emb_dim).astype(np.float32),
+        QUERY_KEY: np.random.rand(1, time_steps, w2v_emb_dim).astype(np.float32),
     }
 
     return training_dict, testing_dict, predict_dict
@@ -213,5 +224,8 @@ sentence_embedder = get_sentence_embedder()
 # # Train the model with n_step step and do validation test
 sentence_embedder.fit(x=training_dict, y=None, batch_size=training_batch_size, steps=2, monitors=None)
 #
+# # Evaluate model
+sentence_embedder.score(x=testing_dict, y=None, batch_size=None)
+#
 # # Try to predict
-# pred = sentence_embedder.predict(x=predict_dict, batch_size=1)
+pred = sentence_embedder.predict(x=predict_dict, batch_size=1)
