@@ -138,8 +138,8 @@ def cnn_lstm_context_embedding(features, labels, mode, params):
         # convert from 1 sentence or 1 sequence_of_word2vec which shape = [n_word, w2v_emb_size] to [emb_dim,]
 
         # reshape by combine each sentence in each sample together
-        # [n_sample, n_last_chat, max_word, w2v_emb_size, n_chanel] -> [-1, max_word, w2v_emb_size, n_chanel]
-        contexts = tf.reshape(contexts, [-1, max_word, w2v_emb_size, n_chanel])
+        # [n_sample, n_last_chat, max_word, w2v_emb_size] -> [-1, max_word, w2v_emb_size]
+        contexts = tf.reshape(contexts, [-1, max_word, w2v_emb_size])
 
         # use CNN for embed every sentence
         cnn_contexts = cnn_embed_sentence(contexts)
@@ -191,13 +191,13 @@ def cnn_lstm_context_embedding(features, labels, mode, params):
             contexts = features[CONTEXT_KEY]
 
             # reshape by combine each sentence in each sample together
-            # [n_sample, n_last_chat, max_word, w2v_emb_size, n_chanel] -> [-1, max_word, w2v_emb_size, n_chanel]
+            # [n_sample, n_last_chat, max_word, w2v_emb_size] -> [-1, max_word, w2v_emb_size]
             contexts = tf.reshape(contexts, [-1, max_word, w2v_emb_size, n_chanel])
 
             # use CNN for embed every sentence
             cnn_contexts = cnn_embed_sentence(contexts)
 
-            # reshape to original shape = [n_sample, n_last_chat (or time_steps), cnn_emb_dim]
+            # reshape to proper shape = [n_sample, n_last_chat (or time_steps), cnn_emb_dim]
             cnn_contexts = tf.reshape(cnn_contexts, [-1, n_last_chat, cnn_emb_dim])
 
             # call function for get a vector
@@ -273,23 +273,23 @@ def get_simulation_data():
     '''
     # define a fake dict of dataset
     training_dict = {
-        CONTEXT_KEY: np.random.rand(n_train_sample, n_last_chat, max_word, w2v_emb_size, n_chanel).astype(
+        CONTEXT_KEY: np.random.rand(n_train_sample, n_last_chat, max_word, w2v_emb_size).astype(
             np.float32),
-        POS_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size, n_chanel).astype(
+        POS_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size).astype(
             np.float32),
-        NEG_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size, n_chanel).astype(
+        NEG_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size).astype(
             np.float32),
     }
     testing_dict = {
-        CONTEXT_KEY: np.random.rand(n_train_sample, n_last_chat, max_word, w2v_emb_size, n_chanel).astype(
+        CONTEXT_KEY: np.random.rand(n_train_sample, n_last_chat, max_word, w2v_emb_size).astype(
             np.float32),
-        POS_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size, n_chanel).astype(
+        POS_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size).astype(
             np.float32),
-        NEG_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size, n_chanel).astype(
+        NEG_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size).astype(
             np.float32),
     }
     predict_dict = {
-        CONTEXT_KEY: np.random.rand(1, n_last_chat, max_word, w2v_emb_size, n_chanel).astype(
+        CONTEXT_KEY: np.random.rand(1, n_last_chat, max_word, w2v_emb_size).astype(
             np.float32),
         # POS_RESP_KEY: np.random.rand(1, max_word, w2v_emb_size, n_chanel).astype(
         #     np.float32),
