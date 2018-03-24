@@ -8,6 +8,9 @@ LSTM Context Embedding
                 context | list of sentence ➜ list of embedded_sentence
 2) สำหรับแต่ละ embedded_sentence ซึ่งเป็นเวกเตอร์ เราจะนำมารวบให้กลายเป็นเวกเตอร์ใหม่เพียงตัวเดียว ผ่านการฝึกสอนโดยใช้ LSTM ในการเรียนรู้
 โดยคาดหวังว่า LSTM จะสามารถจับความเป็นเรื่องราวของแต่ละประโยคและสามารถสรุปได้ว่าประโยคถัดไป (next sentence) ควรมีหน้าตาเป็นอย่างไร
+
+
+ยัง predict CONTEXT ไม่ได้ เพราะ input ตอนนี้เป็น seq of w2v จริงๆต้องใช้ seq of cnn_emb
 '''
 import numpy as np
 import tensorflow as tf
@@ -18,7 +21,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 tf.set_random_seed(4321)
 
 
-def lstm_sentence_embedding(features, labels, mode, params):
+def cnn_lstm_context_embedding(features, labels, mode, params):
     '''
     :param features: dict of sentence features with shape (batch_size, max_words, dim_of_word)
     features['seq1'] return batch of query sentence
@@ -31,39 +34,43 @@ def lstm_sentence_embedding(features, labels, mode, params):
     '''
     print('CURRENT MODE: %s' % mode.upper())
 
-    emb_size = 200
-    n_lstm_units = 200  # number of hidden units
+    n_lstm_units = 150  # number of hidden units
     M = params['M']  # a constant for computed with loss
 
-    # LSTM cell for context
+    # LSTM cell for context embedding
     with tf.variable_scope("lstm_context_emb_cell"):
         # create a LSTM cell
         cell_query = rnn.LSTMCell(num_units=n_lstm_units)
-        projection_cell_query = rnn.OutputProjectionWrapper(cell=cell_query, output_size=emb_size,
+        projection_cell_query = rnn.OutputProjectionWrapper(cell=cell_query, output_size=lstm_emb_size,
                                                             activation=tf.nn.relu)
 
         for v in tf.trainable_variables():
             tf.summary.histogram(name=v.name.replace(':0', ''), values=v)
 
-    # LSTM cell for response
-    with tf.variable_scope("lstm_response_emb_cell"):
-        # create a LSTM cell
-        cell_resp = rnn.LSTMCell(num_units=n_lstm_units)
-        projection_cell_resp = rnn.OutputProjectionWrapper(cell=cell_resp, output_size=emb_size,
-                                                           activation=tf.nn.relu)
+    # CNN filter variable for sentence embedding
+    with tf.variable_scope("cnn_sentence_emb"):
+        # create a filter/kernel
+        cnn_emb_w = tf.get_variable("emb_w", shape=[n_grams, w2v_emb_size, n_chanel, n_filter],
+                                    initializer=tf.random_normal_initializer)
 
+        cnn_emb_b = tf.get_variable("emb_b", shape=[n_filter],
+                                    initializer=tf.zeros_initializer)
         for v in tf.trainable_variables():
             tf.summary.histogram(name=v.name.replace(':0', ''), values=v)
 
     def cnn_embed_sentence(x):
+        # make sure that shape of x have n_chanel at the last rank
+        x = tf.reshape(x, [-1, max_word, w2v_emb_size, n_chanel])
+
         # Convolutional Layer #1
         # the number of filter implies about the number of keyword that we attended
-        conv1 = tf.layers.conv2d(
-            inputs=x,
-            filters=128,
-            kernel_size=[n_grams, w2v_emb_size],
-            padding='SAME',
-            activation=tf.nn.relu)
+        conv1 = tf.nn.conv2d(
+            input=x,
+            filter=cnn_emb_w,
+            padding="SAME",
+            strides=[1, 1, 1, 1],  # must use [1, ?, ?, 1]
+        )
+        conv1 = tf.nn.relu(conv1 + cnn_emb_b)
 
         # Pooling Layer #1
         pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
@@ -89,24 +96,6 @@ def lstm_sentence_embedding(features, labels, mode, params):
         outputs = outputs[-1]
 
         # assume that this outputs is a emb_vector
-        return outputs
-
-    def embed_response(x):
-        # (outputs, final_state) is returned from tf.nn.dynamic_rnn()
-        # outputs is an collection of all outputs in every step emitted which shape = (batch, time_step, n_output_size)
-        # final_state = (c_state, h_state) final
-        # but in this project, we care only outputs
-        outputs, _ = tf.nn.dynamic_rnn(cell=projection_cell_resp, inputs=x, time_major=False, dtype=tf.float32)
-
-        # transpose (batch, time_step, n_output_size) -> (time_step, batch, n_output_size)
-        #   ↳ unpack to list [(batch, outputs)..] * steps
-        outputs = tf.transpose(outputs, [1, 0, 2])
-
-        # get the last output from last time_step only.
-        # shape = (batch, n_output_size)
-        outputs = outputs[-1]
-
-        # assume that this outputs is a vector
         return outputs
 
     def cosine_similarity(vec1, vec2):
@@ -140,40 +129,39 @@ def lstm_sentence_embedding(features, labels, mode, params):
 
     # Calculate Loss (for TRAIN, EVAL modes)
     if mode != ModeKeys.INFER:
-        contexts = features[CONTEXT_KEY]  # get a query
-        seq2 = features[POS_RESP_KEY]  # get a pos_response
-        seq3 = features[NEG_RESP_KEY]  # get a neg_response
+        contexts = features[CONTEXT_KEY]  # get a context [n_sample, n_last_chat, max_word, w2v_emb_size, n_chanel]
+        seq2 = features[POS_RESP_KEY]  # get a pos_response [n_sample, max_word, w2v_emb_size]
+        seq3 = features[NEG_RESP_KEY]  # get a neg_response [n_sample, max_word, w2v_emb_size]
 
-        # convert every sentence (sequence of word2vec) in each pack (n_last_chat) to be a embed_sentence
+        # we want to convert every sentence (sequence of word2vec) in each pack (1 pack have n_last_chat sequence)
+        # to be a embed_sentence
         # convert from 1 sentence or 1 sequence_of_word2vec which shape = [n_word, w2v_emb_size] to [emb_dim,]
-        cnn_contexts = []
-        for sample_idx, sample_item in enumerate(contexts):
-            # sample_item is a packed of last chat
-            # we embed it into vector, so we got a data shape = [n_last_chat, emb_dim]
-            cnn_contexts.append(cnn_embed_sentence(sample_item))
 
-        # cnn_contexts become a tensor which shape = [n_sample, n_last_chat (or time_steps), emb_dim]
-        cnn_contexts = tf.convert_to_tensor(cnn_contexts, dtype=tf.float32)
+        # reshape by combine each sentence in each sample together
+        # [n_sample, n_last_chat, max_word, w2v_emb_size, n_chanel] -> [-1, max_word, w2v_emb_size, n_chanel]
+        contexts = tf.reshape(contexts, [-1, max_word, w2v_emb_size, n_chanel])
 
-        # get LSTM embedded vector: output.shape = [n_sample , emb_dim]
-        with tf.variable_scope("context_emb_vec"):
-            vec1 = lstm_embed_context(cnn_contexts)  # query
-        with tf.variable_scope("response_emb_vec"):
-            vec2 = embed_response(seq2)  # pos_response
-            vec3 = embed_response(seq3)  # neg_response
+        # use CNN for embed every sentence
+        cnn_contexts = cnn_embed_sentence(contexts)
 
-        # calculate cosine similarity of each vec pairs, output.shape = [n_sample, ]
+        # reshape to original shape = [n_sample, n_last_chat (or time_steps), cnn_emb_dim]
+        cnn_contexts = tf.reshape(cnn_contexts, [-1, n_last_chat, cnn_emb_dim])
+
+        # this is a batch of vector (context embedding) which shape = [n_sample, lstm_emb_size]
+        vec1 = lstm_embed_context(cnn_contexts)  # context
+        # this is a batch of vector (sentence embedding or response embedding) which shape = [n_sample, cnn_emb_size]
+        vec2 = cnn_embed_sentence(seq2)  # pos_response
+        vec3 = cnn_embed_sentence(seq3)  # neg_response
+
+        # calculate cosine similarity of each vec pairs, output.shape = [n_sample,]
         cosine_sim_pos = cosine_similarity(vec1, vec2)  # need a large value
         cosine_sim_neg = cosine_similarity(vec1, vec3)  # need a tiny value
 
-        # calculate loss of each pair pos_neg. output.shape = [n_sample, ]
-        each_loss = -cosine_sim_pos + cosine_sim_neg  # << too small too good, boundary [-1, 1]
+        # calculate loss of each pair pos_neg. output.shape = [n_sample,]
+        losses = tf.maximum(0., M - cosine_sim_pos + cosine_sim_neg) # << too small too good
 
-        # sum all loss. get output be scalar
-        total_loss = tf.reduce_sum(each_loss)
-
-        # final loss
-        loss = tf.maximum(0., M + total_loss)
+        # final_loss = sum all loss. and get output be scalar
+        loss = tf.reduce_mean(losses)
 
     # Configure the Training Optimizer (only TRAIN modes)
     if mode == ModeKeys.TRAIN:
@@ -191,6 +179,7 @@ def lstm_sentence_embedding(features, labels, mode, params):
             ]
         )
 
+    # default predictions is a empty, but will generate if and only if mode == prediction
     predictions = {}
 
     # for prediction mode
@@ -198,11 +187,25 @@ def lstm_sentence_embedding(features, labels, mode, params):
     if mode == ModeKeys.INFER:
         # if user want to get a query_embedding
         if features.keys().__contains__(CONTEXT_KEY):
-            predictions = {'emb_vec': lstm_embed_context(features[CONTEXT_KEY])}
+            # reshape data in a true format
+            contexts = features[CONTEXT_KEY]
+
+            # reshape by combine each sentence in each sample together
+            # [n_sample, n_last_chat, max_word, w2v_emb_size, n_chanel] -> [-1, max_word, w2v_emb_size, n_chanel]
+            contexts = tf.reshape(contexts, [-1, max_word, w2v_emb_size, n_chanel])
+
+            # use CNN for embed every sentence
+            cnn_contexts = cnn_embed_sentence(contexts)
+
+            # reshape to original shape = [n_sample, n_last_chat (or time_steps), cnn_emb_dim]
+            cnn_contexts = tf.reshape(cnn_contexts, [-1, n_last_chat, cnn_emb_dim])
+
+            # call function for get a vector
+            predictions = {'emb_vec': lstm_embed_context(cnn_contexts)}
 
         # if user want to get a response_embedding
         elif features.keys().__contains__(POS_RESP_KEY):
-            predictions = {'emb_vec': embed_response(features[POS_RESP_KEY])}
+            predictions = {'emb_vec': cnn_embed_sentence(features[POS_RESP_KEY])}
 
     # Return a ModelFnOps object
     return ModelFnOps(predictions=predictions, loss=loss, train_op=train_op, eval_metric_ops=None, mode=mode)
@@ -213,7 +216,7 @@ def get_sentence_embedder():
     Get a SKCompat it a class that can use .fit() for train || .score() for evaluate|| .predict() for predict
     :return: SKCompat model
     '''
-    return SKCompat(Estimator(model_fn=lstm_sentence_embedding,
+    return SKCompat(Estimator(model_fn=cnn_lstm_context_embedding,
                               model_dir=PATH_LSTM_SENTENCE_EMB,
                               config=RunConfig(save_checkpoints_secs=300, keep_checkpoint_max=3),
                               params=model_params,
@@ -222,24 +225,25 @@ def get_sentence_embedder():
 
 
 # path of LSTM sentence embedding
-PATH_LSTM_SENTENCE_EMB = './trained_model/lstm_context_emb'
+PATH_LSTM_SENTENCE_EMB = './trained_model/cnn_lstm_context_emb'
 
-n_filter = 10  # n_filter is used to capture N phrase in any position in sentence
+n_filter = 128  # n_filter is used to capture N phrase in any position in sentence
 n_grams = 2  # n_grams is used to group N word be 1 phrase
 
 n_last_chat = 6
 n_filter = 10  # n_filter is used to capture N phrase in any position in sentence
 n_grams = 2  # n_grams is used to group N word be 1 phrase
 n_chanel = 1
-cnn_emb_dim = 150
+cnn_emb_dim = 200
 
 # for context: we assume that the properly response is depended on the last 6 chat.
-context_max_word = 15 * n_last_chat
-context_time_steps = context_max_word
+max_word = 15
+context_time_steps = max_word
+lstm_emb_size = cnn_emb_dim
 
 # for response
-resp_max_word = 15
-resp_time_steps = resp_max_word
+max_word = 15
+resp_time_steps = max_word
 
 w2v_emb_size = 150  # embedding size in word2vec
 n_train_sample = 100
@@ -254,7 +258,7 @@ NEG_RESP_KEY = 'neg_response'
 model_params = dict(
     learning_rate=0.05,
     drop_out_rate=0.2,
-    M=training_batch_size * 1 * 0.75
+    M=0.75
 )
 
 
@@ -269,20 +273,26 @@ def get_simulation_data():
     '''
     # define a fake dict of dataset
     training_dict = {
-        CONTEXT_KEY: np.random.rand(n_train_sample, n_last_chat, context_max_word, w2v_emb_size, n_chanel).astype(
+        CONTEXT_KEY: np.random.rand(n_train_sample, n_last_chat, max_word, w2v_emb_size, n_chanel).astype(
             np.float32),
-        POS_RESP_KEY: np.random.rand(n_train_sample, n_last_chat, resp_max_word, w2v_emb_size, n_chanel).astype(
+        POS_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size, n_chanel).astype(
             np.float32),
-        NEG_RESP_KEY: np.random.rand(n_train_sample, n_last_chat, resp_max_word, w2v_emb_size, n_chanel).astype(
+        NEG_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size, n_chanel).astype(
             np.float32),
     }
     testing_dict = {
-        CONTEXT_KEY: np.random.rand(n_train_sample, context_max_word, w2v_emb_size).astype(np.float32),
-        POS_RESP_KEY: np.random.rand(n_train_sample, resp_max_word, w2v_emb_size).astype(np.float32),
-        NEG_RESP_KEY: np.random.rand(n_train_sample, resp_max_word, w2v_emb_size).astype(np.float32),
+        CONTEXT_KEY: np.random.rand(n_train_sample, n_last_chat, max_word, w2v_emb_size, n_chanel).astype(
+            np.float32),
+        POS_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size, n_chanel).astype(
+            np.float32),
+        NEG_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size, n_chanel).astype(
+            np.float32),
     }
     predict_dict = {
-        CONTEXT_KEY: np.random.rand(1, context_max_word, w2v_emb_size).astype(np.float32),
+        CONTEXT_KEY: np.random.rand(1, n_last_chat, max_word, w2v_emb_size, n_chanel).astype(
+            np.float32),
+        # POS_RESP_KEY: np.random.rand(1, max_word, w2v_emb_size, n_chanel).astype(
+        #     np.float32),
     }
 
     return training_dict, testing_dict, predict_dict
@@ -300,7 +310,10 @@ training_dict, testing_dict, predict_dict = get_simulation_data()
 sentence_embedder = get_sentence_embedder()
 #
 # # Train the model with n_step step and do validation test
-sentence_embedder.fit(x=training_dict, y=None, batch_size=training_batch_size, steps=2, monitors=None)
+sentence_embedder.fit(x=training_dict, y=None, batch_size=training_batch_size, steps=5, monitors=None)
+#
+# # Evaluate model
+# sentence_embedder.score(x=testing_dict, y=None, batch_size=None)
 #
 # # Try to predict
-# pred = sentence_embedder.predict(x=predict_dict, batch_size=1)
+pred = sentence_embedder.predict(x=predict_dict, batch_size=1)

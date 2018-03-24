@@ -28,7 +28,7 @@ def lstm_sentence_embedding(features, labels, mode, params):
     '''
     print('CURRENT MODE: %s' % mode.upper())
 
-    emb_size = 200
+    lstm_emb_size = 200
     n_lstm_units = 200  # number of hidden units
     M = params['M']  # a constant for computed with loss
     input_keep_prob = params['input_keep_prob']
@@ -40,7 +40,7 @@ def lstm_sentence_embedding(features, labels, mode, params):
         if mode == ModeKeys.TRAIN:
             cell = rnn.DropoutWrapper(cell=cell, input_keep_prob=input_keep_prob,
                                       output_keep_prob=output_keep_prob)
-        projection_cell = rnn.OutputProjectionWrapper(cell=cell, output_size=emb_size, activation=tf.nn.relu)
+        projection_cell = rnn.OutputProjectionWrapper(cell=cell, output_size=lstm_emb_size, activation=tf.nn.relu)
 
         for v in tf.trainable_variables():
             tf.summary.histogram(name=v.name.replace(':0', ''), values=v)
@@ -102,23 +102,20 @@ def lstm_sentence_embedding(features, labels, mode, params):
         seq3 = features[NEG_RESP_KEY]  # get a neg_response
 
         # get embedded vector: output.shape = [n_sample , emb_dim]
-        with tf.variable_scope('emb_vector'):
-            vec1 = lstm_embed_sentence(seq1)  # query
-            vec2 = lstm_embed_sentence(seq2)  # pos_response
-            vec3 = lstm_embed_sentence(seq3)  # neg_response
+        vec1 = lstm_embed_sentence(seq1)  # query
+        vec2 = lstm_embed_sentence(seq2)  # pos_response
+        vec3 = lstm_embed_sentence(seq3)  # neg_response
 
         # calculate cosine similarity of each vec pairs, output.shape = [n_sample, ]
         cosine_sim_pos = cosine_similarity(vec1, vec2)  # need a large value
         cosine_sim_neg = cosine_similarity(vec1, vec3)  # need a tiny value
 
-        # calculate loss of each pair pos_neg. output.shape = [n_sample, ]
-        each_loss = -cosine_sim_pos + cosine_sim_neg  # << too small too good, boundary [-1, 1]
+        # LOSS
+        # calculate loss of each pair pos_neg. output.shape = [n_sample,]
+        losses = tf.maximum(0., M - cosine_sim_pos + cosine_sim_neg)  # << too small too good
 
-        # sum all loss. get output be scalar
-        total_loss = tf.reduce_sum(each_loss)
-
-        # final loss
-        loss = tf.maximum(0., M + total_loss)
+        # final_loss = sum all loss. and get output be scalar
+        loss = tf.reduce_mean(losses)
 
     # Configure the Training Optimizer (for TRAIN modes)
     if mode == ModeKeys.TRAIN:
