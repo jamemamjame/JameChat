@@ -49,7 +49,7 @@ def cnn_sentence_embedding(features, labels, mode, params):
         convol = tf.nn.relu(convol + emb_b)
 
         # Pooling, output.shape = n_sample * max_word * 1 * n_filter
-        pooling = tf.nn.max_pool(convol, ksize=[1, 1, emb_dim, 1], strides=[1, 1, 1, 1], padding="VALID")
+        pooling = tf.nn.max_pool(convol, ksize=[1, 2, emb_dim, 1], strides=[1, 1, 1, 1], padding="VALID")
 
         # Dense layer
         # reshape [n_samples, max_word, 1, n_filter] ->> [n_samples, max_word * 1 * n_filter]
@@ -155,14 +155,14 @@ def get_sentence_embedder():
     '''
     return SKCompat(Estimator(model_fn=cnn_sentence_embedding,
                               model_dir=PATH_CNN_SENTENCE_EMB,
-                              config=RunConfig(save_checkpoints_secs=300, keep_checkpoint_max=3),
+                              config=RunConfig(keep_checkpoint_max=3),
                               params=model_params,
                               feature_engineering_fn=None
                               ))
 
 
 # path of cnn sentence embedding
-PATH_CNN_SENTENCE_EMB = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/JameChat/training_model/_model/cnn_sentence_emb'
+PATH_CNN_SENTENCE_EMB = '/Users/jamemamjame/Computer-Sci/_chula course/SENIOR PROJECT/JameChat/coding_model/_model/cnn_sentence_emb'
 
 n_filter = 10  # n_filter is used to capture N phrase in any position in sentence
 n_grams = 2  # n_grams is used to group N word be 1 phrase
@@ -220,7 +220,7 @@ training_dict, testing_dict, predict_dict = get_simulation_data()
 sentence_embedder = get_sentence_embedder()
 #
 # # Train the model with n_step step and do validation test
-# sentence_embedder.fit(x=training_dict, y=None, batch_size=training_batch_size, steps=100, monitors=None)
+sentence_embedder.fit(x=training_dict, y=None, batch_size=training_batch_size, steps=100, monitors=None)
 #
 # # Try to predict
 # pred = sentence_embedder.predict(input_fn=predict_input_fn, as_iterable=False)

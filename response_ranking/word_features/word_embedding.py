@@ -46,7 +46,7 @@ def get_score(query, candidate):
                     count += 1
 
     # return a average cosine score
-    return sum_cosine / count
+    return 0 if count == 0 else sum_cosine / count
 
 # # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
 # given query(Q) and candidate(S)

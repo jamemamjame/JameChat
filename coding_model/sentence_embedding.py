@@ -8,7 +8,7 @@ LSTM Sentence Embedding
 '''
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib import layers, rnn
+from tensorflow.contrib import rnn
 from tensorflow.contrib.learn import *
 
 tf.logging.set_verbosity(tf.logging.INFO)
@@ -28,22 +28,21 @@ def lstm_sentence_embedding(features, labels, mode, params):
     '''
     print('CURRENT MODE: %s' % mode.upper())
 
-    lstm_emb_size = 200
-    n_lstm_units = 200  # number of hidden units
     M = params['M']  # a constant for computed with loss
     input_keep_prob = params['input_keep_prob']
     output_keep_prob = params['output_keep_prob']
+    n_lstm_units = 100  # number of hidden units
 
     # create a LSTM cell (only 1 cell but train both query, pos_response, neg_response)
     with tf.variable_scope("emb_cell"):
-        cell = rnn.LSTMCell(num_units=n_lstm_units)
+        cell = rnn.LSTMCell(num_units=n_lstm_units, activation=tf.nn.softmax)
         if mode == ModeKeys.TRAIN:
             cell = rnn.DropoutWrapper(cell=cell, input_keep_prob=input_keep_prob,
                                       output_keep_prob=output_keep_prob)
-        projection_cell = rnn.OutputProjectionWrapper(cell=cell, output_size=lstm_emb_size, activation=tf.nn.relu)
+        projection_cell = rnn.OutputProjectionWrapper(cell=cell, output_size=lstm_emb_size, activation=tf.nn.softmax)
 
-        for v in tf.trainable_variables():
-            tf.summary.histogram(name=v.name.replace(':0', ''), values=v)
+#         for v in tf.trainable_variables():
+#             tf.summary.histogram(name=v.name.replace(':0', ''), values=v)
 
     def lstm_embed_sentence(x):
         # (outputs, final_state) is returned from tf.nn.dynamic_rnn()
@@ -141,7 +140,6 @@ def lstm_sentence_embedding(features, labels, mode, params):
     # Return a ModelFnOps object
     return ModelFnOps(predictions=predictions, loss=loss, train_op=train_op, eval_metric_ops=None, mode=mode)
 
-
 def get_sentence_embedder():
     '''
     Get a SKCompat it a class that can use .fit() for train || .score() for evaluate|| .predict() for predict
@@ -149,65 +147,67 @@ def get_sentence_embedder():
     '''
     return SKCompat(Estimator(model_fn=lstm_sentence_embedding,
                               model_dir=PATH_LSTM_SENTENCE_EMB,
-                              config=RunConfig(save_checkpoints_secs=300, keep_checkpoint_max=3),
+                              config=RunConfig(save_checkpoints_secs=300, keep_checkpoint_max=2),
                               params=model_params,
                               feature_engineering_fn=None))
 
-
 # path of LSTM sentence embedding
-PATH_LSTM_SENTENCE_EMB = './trained_model/lstm_sentence_emb'
+PATH_LSTM_SENTENCE_EMB = 'trained_model/sentence_model'
+
+max_word = 11
+time_steps = max_word
+w2v_emb_dim = 300  # embedding size in word2vec
+lstm_emb_size = 100
+
+model_params = dict(
+    learning_rate=0.001,
+    input_keep_prob=0.85,
+    output_keep_prob=0.85,
+    M=1.0
+)
 
 QUERY_KEY = 'seq1'
 POS_RESP_KEY = 'seq2'
 NEG_RESP_KEY = 'seq3'
 
-n_filter = 10  # n_filter is used to capture N phrase in any position in sentence
-n_grams = 2  # n_grams is used to group N word be 1 phrase
-max_word = 15
-time_steps = max_word
-w2v_emb_dim = 150  # embedding size in word2vec
+path_query = 'train_query.npy'
+path_pos_resp = 'train_resp.npy'
 
-n_train_sample = 100
-n_test_sample = 20
-training_batch_size = 5
-test_batch_size = 2
-
-model_params = dict(
-    learning_rate=0.05,
-    input_keep_prob=0.85,
-    output_keep_prob=0.85,
-    M=training_batch_size * 1 * 0.75
-)
+# training_dict = {
+#     QUERY_KEY: np.load(path_query),
+#     POS_RESP_KEY: np.load(path_pos_resp),
+#     NEG_RESP_KEY: np.load(path_pos_resp), # load pos_response but in future will shuffle
+# }
 
 
 # ======================================================================
 # # # # # # # # # # # # # # # # SIMULATION # # # # # # # # # # # # # # #
 
 
-def get_simulation_data():
-    '''
-    Simulate that we have a real data training_dict, testing_dict and predict_dict
-    :return:
-    '''
-    # define a fake dict of dataset
-    training_dict = {
-        QUERY_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
-        POS_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
-        NEG_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
-    }
-    testing_dict = {
-        QUERY_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
-        POS_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
-        NEG_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
-    }
-    predict_dict = {
-        QUERY_KEY: np.random.rand(1, time_steps, w2v_emb_dim).astype(np.float32),
-    }
-
-    return training_dict, testing_dict, predict_dict
-
-
-training_dict, testing_dict, predict_dict = get_simulation_data()
+# def get_simulation_data():
+#     '''
+#     Simulate that we have a real data training_dict, testing_dict and predict_dict
+#     :return:
+#     '''
+#     # define a fake dict of dataset
+#     training_dict = {
+#         QUERY_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
+#         POS_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
+#         NEG_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
+#     }
+#     testing_dict = {
+#         QUERY_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
+#         POS_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
+#         NEG_RESP_KEY: np.random.rand(n_train_sample, time_steps, w2v_emb_dim).astype(np.float32),
+#     }
+#     predict_dict = {
+#         QUERY_KEY: np.random.rand(1, time_steps, w2v_emb_dim).astype(np.float32),
+#     }
+#
+#     return training_dict, testing_dict, predict_dict
+#
+#
+# training_dict, testing_dict, predict_dict = get_simulation_data()
 
 # ======================================================================
 # # # # # # # # # # # # # # # # # TRAIN MODEL # # # # # # # # # # # # # # #
@@ -216,13 +216,13 @@ training_dict, testing_dict, predict_dict = get_simulation_data()
 # validation_monitor = monitors.ValidationMonitor(x=testing_dict, y=None, every_n_steps=50, name='validation')
 #
 # # Training model is ran by step, not epoch
-sentence_embedder = get_sentence_embedder()
+# sentence_embedder = get_sentence_embedder()
 #
 # # Train the model with n_step step and do validation test
-sentence_embedder.fit(x=training_dict, y=None, batch_size=training_batch_size, steps=2, monitors=None)
+# sentence_embedder.fit(x=training_dict, y=None, batch_size=training_batch_size, steps=2, monitors=None)
 #
-# # Evaluate model
-sentence_embedder.score(x=testing_dict, y=None, batch_size=None)
-#
-# # Try to predict
-pred = sentence_embedder.predict(x=predict_dict, batch_size=1)
+# # # Evaluate model
+# sentence_embedder.score(x=testing_dict, y=None, batch_size=None)
+# #
+# # # Try to predict
+# pred = sentence_embedder.predict(x=predict_dict, batch_size=1)

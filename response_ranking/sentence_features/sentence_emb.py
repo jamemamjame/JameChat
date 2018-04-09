@@ -1,5 +1,5 @@
-from training_model.cnn_sentence_embedding import get_sentence_embedder
-from training_model.word_seq_perp import generate_dialogs_embedding
+from coding_model.sentence_embedding import get_sentence_embedder
+from coding_model.preprocess.word_seq_perp import generate_dialogs_embedding
 from scipy.spatial.distance import cosine
 
 SENTENCE_EMB = get_sentence_embedder()
@@ -23,6 +23,6 @@ def get_score(query, candidate):
 
 # # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
 # given query(Q) and candidate(S)
-query = 'Do you know the history of Beijing?'
-candidate = 'Beijing is a historical city that can be traced back to 3,000 years ago.'
+# query = 'Do you know the history of Beijing?'
+# candidate = 'Beijing is a historical city that can be traced back to 3,000 years ago.'
 # get_score(query, candidate)

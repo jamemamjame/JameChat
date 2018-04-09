@@ -18,10 +18,10 @@ dialogs = [
 ]
 
 # load pre-trained Word Embedding model
-WORD_EMB = load_word_embedding(load_glove=True)
+WORD_EMB = load_word_embedding(load_glove=False)
 
 # constant of maximum number of word in sentence (important when padding)
-MAX_WORD = 20
+MAX_WORD = 11
 N_CHANEL = 1
 
 
@@ -40,7 +40,7 @@ def generate_wordlist_emb(txt):
         else:
             # shape is depend on embedding dimension
             # use [1., 1., 1., ...] represent a unknown word
-            wordlist.append(np.full(shape=[100], fill_value=1.0, dtype=np.float32))
+            wordlist.append(np.full(shape=[300], fill_value=1.0, dtype=np.float32))
     return wordlist
 
 
@@ -54,16 +54,16 @@ def generate_sentence_embedding(sentence):
 
 def generate_dialogs_embedding(dialogs):
     tmp_dialogs = []
-    for sentence in dialogs:
+    for i, sentence in enumerate(dialogs):
         tmp_dialogs.append(generate_sentence_embedding(sentence))
 
     # padding a word that lower than max_words
     tmp_dialogs = np.array(tmp_dialogs)
 
-    n_sample, max_word, emb_dim, = tmp_dialogs.shape[0], tmp_dialogs.shape[1], tmp_dialogs.shape[2]
+    # n_sample, max_word, emb_dim, = tmp_dialogs.shape[0], tmp_dialogs.shape[1], tmp_dialogs.shape[2]
 
-    # return with add 1 chanel in the last index
-    return np.reshape(tmp_dialogs, [n_sample, max_word, emb_dim, N_CHANEL])
+    # # return with add 1 chanel in the last index
+    # return np.reshape(tmp_dialogs, [n_sample, max_word, emb_dim, N_CHANEL])
+    return tmp_dialogs
 
-
-dialogs_emb = generate_dialogs_embedding(dialogs)
+# dialogs_emb = generate_dialogs_embedding(dialogs)

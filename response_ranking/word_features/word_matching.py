@@ -9,10 +9,33 @@ Word Matching
 - Note:
     how to calculate TF-IDF: https://en.wikipedia.org/wiki/Tf–idf
 '''
-from textblob import Sentence
-from src.static_variable import STOPWORDS
+from textblob import Sentence, Word
+from src.static_variable import load_stopwords
 from numpy import log
 
+STOPWORDS = load_stopwords()
+
+# define a dict of part of speech (POS) mapping
+NOUN, VERB, ADJ, ADV = 'n', 'v', 'j', 'r'
+POSMAP = {'N': NOUN, 'V': VERB, 'j': ADJ, 'r': ADV}
+
+def prep_text(txt):
+    '''
+    Process a text string to list of word
+    :param txt: text String
+    :return: list of word that is non-stopwords and lemmatized
+    '''
+    word_list = []
+    postags = Sentence(txt.lower()).pos_tags
+    for word, pos in postags:
+        if word in STOPWORDS:
+            continue
+
+        if pos[0] in POSMAP.keys():
+            word_list.append(Word(word).lemmatize(POSMAP[pos[0]]))
+        else:
+            word_list.append(word)
+    return Sentence(' '.join(word_list))
 
 def tf(word, sentence):
     return sentence.words.count(word, case_sensitive=False) / len(sentence.words)
@@ -44,9 +67,9 @@ def get_score(query, candidate, document):
     :return:
     '''
 
-    query = Sentence(query.lower())
-    candidate = Sentence(candidate.lower())
-    document = [Sentence(doc.lower()) for doc in document]
+    query = prep_text(query)
+    candidate = prep_text(candidate)
+    document = [prep_text(doc) for doc in document]
 
     score = 0.0
     # loop for each word without stopwords
@@ -58,7 +81,6 @@ def get_score(query, candidate, document):
                         score += tfidf(word1, candidate, document)
 
     return score
-
 
 # # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
 # given query(Q), candidate(S) and candidates(D)

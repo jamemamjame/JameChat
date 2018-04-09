@@ -3,7 +3,7 @@ Retrieval
 --------
 score by most shared non-stopwords
 '''
-from src.static_variable import PATH_DOCUMENT, load_stopwords
+from src.static_variable import load_stopwords
 from textblob import Sentence, Word
 
 # get set of english stopwords
@@ -43,7 +43,7 @@ def get_score(query, res):
     return len(set(query).intersection(set(res))) / (len(query) + len(res))
 
 
-def Retrieve(query, n_candidate=5):
+def Retrieve(query, document, n_candidate=5):
     '''
     Retrieve a set of sentence that have a chance to be a best response given query
     :param query: String of query (question)
@@ -58,36 +58,31 @@ def Retrieve(query, n_candidate=5):
     # the min score at index 0 must lower than -1 * n_candidate
     poss_reponse = [('', -(n_candidate + 5) + i) for i in range(0, n_candidate)]
 
-    with open(PATH_DOCUMENT, encoding='utf-8') as f:
-        for line in f:
-            # check for skip line
-            if line.startswith('#') or line == '\n':
+    for line in document:
+        line = line.strip()
+        added = False
+
+        # calculate score
+        score = get_score(query=query, res=prep_text(line))
+
+        # loop for append (sentence, score) to list like a link-list with sorted by score
+        for i, (st, st_score) in enumerate(poss_reponse):
+            if i == 0 and score <= st_score:
+                break
+            if score > st_score:
                 continue
-
-            line = line.strip()
-            added = False
-
-            # calculate score
-            score = get_score(query=query, res=prep_text(line))
-
-            # loop for append (sentence, score) to list like a link-list with sorted by score
-            for i, (st, st_score) in enumerate(poss_reponse):
-                if i == 0 and score <= st_score:
-                    break
-                if score > st_score:
-                    continue
-                if score <= st_score:
-                    poss_reponse.insert(i, (line, score))
-                    poss_reponse.pop(0)
-                    added = True
-                    break
-
-            if not added and i == len(poss_reponse) - 1:
-                poss_reponse.append((line, score))
+            if score <= st_score:
+                poss_reponse.insert(i, (line, score))
                 poss_reponse.pop(0)
+                added = True
+                break
+
+        if not added and i == len(poss_reponse) - 1:
+            poss_reponse.append((line, score))
+            poss_reponse.pop(0)
 
     return [candidate for (candidate, _) in poss_reponse]
 
 # # # # # # # # # # # # # # # Unit Test # # # # # # # # # # # # # # # # # #
 # query = 'Do you know the history of Beijing?'
-# results = retrive(query)
+# results = Retrieve(query)

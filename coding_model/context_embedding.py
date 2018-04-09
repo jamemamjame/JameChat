@@ -14,8 +14,9 @@ LSTM Context Embedding
 '''
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib import layers, rnn
+from tensorflow.contrib import layers, rnn, learn
 from tensorflow.contrib.learn import *
+import os
 
 tf.logging.set_verbosity(tf.logging.INFO)
 tf.set_random_seed(4321)
@@ -34,18 +35,25 @@ def cnn_lstm_context_embedding(features, labels, mode, params):
     '''
     print('CURRENT MODE: %s' % mode.upper())
 
-    n_lstm_units = 150  # number of hidden units
+    n_lstm_units = 100  # number of hidden units
     M = params['M']  # a constant for computed with loss
+    cnn_drop_out_rate = params['cnn_drop_out_rate']
+    rnn_input_keep_prob = params['rnn_input_keep_prob']
+    rnn_output_keep_prob = params['rnn_output_keep_prob']
+    learning_rate = params['learning_rate']
 
     # LSTM cell for context embedding
     with tf.variable_scope("lstm_context_emb_cell"):
         # create a LSTM cell
-        cell_query = rnn.LSTMCell(num_units=n_lstm_units)
-        projection_cell_query = rnn.OutputProjectionWrapper(cell=cell_query, output_size=lstm_emb_size,
-                                                            activation=tf.nn.relu)
+        cell = rnn.LSTMCell(num_units=n_lstm_units)
 
-        for v in tf.trainable_variables():
-            tf.summary.histogram(name=v.name.replace(':0', ''), values=v)
+        if mode == ModeKeys.TRAIN:
+            cell = rnn.DropoutWrapper(cell, rnn_input_keep_prob, rnn_output_keep_prob)
+
+        projection_cell = rnn.OutputProjectionWrapper(cell=cell, output_size=lstm_emb_size,
+                                                      activation=tf.nn.sigmoid)
+    #         for v in tf.trainable_variables():
+    #             tf.summary.histogram(name=v.name.replace(':0', ''), values=v)
 
     # CNN filter variable for sentence embedding
     with tf.variable_scope("cnn_sentence_emb"):
@@ -67,17 +75,20 @@ def cnn_lstm_context_embedding(features, labels, mode, params):
         conv1 = tf.nn.conv2d(
             input=x,
             filter=cnn_emb_w,
-            padding="SAME",
+            padding="VALID",
             strides=[1, 1, 1, 1],  # must use [1, ?, ?, 1]
         )
         conv1 = tf.nn.relu(conv1 + cnn_emb_b)
 
-        # Pooling Layer #1
-        pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
+        # Pooling, output.shape = n_sample * max_word * 1 * n_filter
+        pool1 = tf.nn.max_pool(conv1, ksize=[1, 2, 1, 1], strides=[1, 1, 1, 1], padding="VALID")
 
         # Dense Layer
         pool_flat = layers.flatten(inputs=pool1)
-        embed = tf.layers.dense(inputs=pool_flat, units=cnn_emb_dim, activation=tf.nn.relu)
+        dense1 = tf.layers.dense(inputs=pool_flat, units=256, activation=tf.nn.relu)
+        dropout1 = tf.layers.dropout(inputs=dense1, rate=cnn_drop_out_rate, training=mode == learn.ModeKeys.TRAIN)
+
+        embed = tf.layers.dense(inputs=dropout1, units=cnn_emb_dim, activation=tf.nn.relu)
         return embed
 
     def lstm_embed_context(x):
@@ -85,7 +96,7 @@ def cnn_lstm_context_embedding(features, labels, mode, params):
         # outputs is an collection of all outputs in every step emitted which shape = (batch, time_step, n_output_size)
         # final_state = (c_state, h_state) final
         # but in this project, we care only outputs
-        outputs, _ = tf.nn.dynamic_rnn(cell=projection_cell_query, inputs=x, time_major=False, dtype=tf.float32)
+        outputs, _ = tf.nn.dynamic_rnn(cell=projection_cell, inputs=x, time_major=False, dtype=tf.float32)
 
         # transpose (batch, time_step, n_output_size) -> (time_step, batch, n_output_size)
         #   ↳ unpack to list [(batch, outputs)..] * steps
@@ -129,7 +140,7 @@ def cnn_lstm_context_embedding(features, labels, mode, params):
 
     # Calculate Loss (for TRAIN, EVAL modes)
     if mode != ModeKeys.INFER:
-        contexts = features[CONTEXT_KEY]  # get a context [n_sample, n_last_chat, max_word, w2v_emb_size, n_chanel]
+        contexts = features[CONTEXT_KEY]  # get a context [n_sample, n_last_chat, max_word, w2v_emb_size]
         seq2 = features[POS_RESP_KEY]  # get a pos_response [n_sample, max_word, w2v_emb_size]
         seq3 = features[NEG_RESP_KEY]  # get a neg_response [n_sample, max_word, w2v_emb_size]
 
@@ -158,7 +169,7 @@ def cnn_lstm_context_embedding(features, labels, mode, params):
         cosine_sim_neg = cosine_similarity(vec1, vec3)  # need a tiny value
 
         # calculate loss of each pair pos_neg. output.shape = [n_sample,]
-        losses = tf.maximum(0., M - cosine_sim_pos + cosine_sim_neg) # << too small too good
+        losses = tf.maximum(0., M - cosine_sim_pos + cosine_sim_neg)  # << too small too good
 
         # final_loss = sum all loss. and get output be scalar
         loss = tf.reduce_mean(losses)
@@ -170,7 +181,8 @@ def cnn_lstm_context_embedding(features, labels, mode, params):
             loss=loss,
             global_step=tf.contrib.framework.get_global_step(),
             optimizer=tf.train.AdamOptimizer,
-            learning_rate=params['learning_rate'],
+            learning_rate=learning_rate,
+            #             clip_gradients=1.0, # protect a exploding gradients problem
             summaries=[
                 'learning_rate',
                 'loss',
@@ -218,47 +230,37 @@ def get_sentence_embedder():
     '''
     return SKCompat(Estimator(model_fn=cnn_lstm_context_embedding,
                               model_dir=PATH_LSTM_SENTENCE_EMB,
-                              config=RunConfig(save_checkpoints_secs=300, keep_checkpoint_max=3),
+                              config=RunConfig(save_checkpoints_secs=300, keep_checkpoint_max=2),
                               params=model_params,
                               feature_engineering_fn=None
                               ))
 
 
 # path of LSTM sentence embedding
-PATH_LSTM_SENTENCE_EMB = './trained_model/cnn_lstm_context_emb'
+PATH_LSTM_SENTENCE_EMB = 'trained_model/context_model'
 
-n_filter = 128  # n_filter is used to capture N phrase in any position in sentence
-n_grams = 2  # n_grams is used to group N word be 1 phrase
-
-n_last_chat = 6
-n_filter = 10  # n_filter is used to capture N phrase in any position in sentence
-n_grams = 2  # n_grams is used to group N word be 1 phrase
+n_last_chat = 3
+n_filter = 512  # n_filter is used to capture N phrase in any position in sentence
+n_grams = 3  # n_grams is used to group N word be 1 phrase
 n_chanel = 1
-cnn_emb_dim = 200
+cnn_emb_dim = 100
 
 # for context: we assume that the properly response is depended on the last 6 chat.
-max_word = 15
+max_word = 11
 context_time_steps = max_word
 lstm_emb_size = cnn_emb_dim
 
 # for response
-max_word = 15
 resp_time_steps = max_word
 
-w2v_emb_size = 150  # embedding size in word2vec
-n_train_sample = 100
-n_test_sample = 20
-training_batch_size = 5
-test_batch_size = 2
-
-CONTEXT_KEY = 'context'
-POS_RESP_KEY = 'pos_response'
-NEG_RESP_KEY = 'neg_response'
+w2v_emb_size = 300  # embedding size in word2vec
 
 model_params = dict(
-    learning_rate=0.05,
-    drop_out_rate=0.2,
-    M=0.75
+    learning_rate=10e-4,
+    cnn_drop_out_rate=.2,
+    rnn_input_keep_prob=.85,
+    rnn_output_keep_prob=.85,
+    M=1.0
 )
 
 
@@ -266,54 +268,15 @@ model_params = dict(
 # # # # # # # # # # # # # # # # SIMULATION # # # # # # # # # # # # # # #
 
 
-def get_simulation_data():
-    '''
-    Simulate that we have a real data training_dict, testing_dict and predict_dict
-    :return:
-    '''
-    # define a fake dict of dataset
-    training_dict = {
-        CONTEXT_KEY: np.random.rand(n_train_sample, n_last_chat, max_word, w2v_emb_size).astype(
-            np.float32),
-        POS_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size).astype(
-            np.float32),
-        NEG_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size).astype(
-            np.float32),
-    }
-    testing_dict = {
-        CONTEXT_KEY: np.random.rand(n_train_sample, n_last_chat, max_word, w2v_emb_size).astype(
-            np.float32),
-        POS_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size).astype(
-            np.float32),
-        NEG_RESP_KEY: np.random.rand(n_train_sample, max_word, w2v_emb_size).astype(
-            np.float32),
-    }
-    predict_dict = {
-        CONTEXT_KEY: np.random.rand(1, n_last_chat, max_word, w2v_emb_size).astype(
-            np.float32),
-        # POS_RESP_KEY: np.random.rand(1, max_word, w2v_emb_size, n_chanel).astype(
-        #     np.float32),
-    }
+CONTEXT_KEY = 'context'
+POS_RESP_KEY = 'pos_response'
+NEG_RESP_KEY = 'neg_response'
 
-    return training_dict, testing_dict, predict_dict
+path_context = 'train_context.npy'
+path_pos_resp = 'train_pos_resp.npy'
 
-
-training_dict, testing_dict, predict_dict = get_simulation_data()
-
-# ======================================================================
-# # # # # # # # # # # # # # # # # TRAIN MODEL # # # # # # # # # # # # # # #
-#
-# validation test on testing data every_n_step or every save_checkpoints_secs
-# validation_monitor = monitors.ValidationMonitor(x=testing_dict, y=None, every_n_steps=50, name='validation')
-#
-# # Training model is ran by step, not epoch
-sentence_embedder = get_sentence_embedder()
-#
-# # Train the model with n_step step and do validation test
-sentence_embedder.fit(x=training_dict, y=None, batch_size=training_batch_size, steps=5, monitors=None)
-#
-# # Evaluate model
-# sentence_embedder.score(x=testing_dict, y=None, batch_size=None)
-#
-# # Try to predict
-pred = sentence_embedder.predict(x=predict_dict, batch_size=1)
+# training_dict = {
+#     CONTEXT_KEY: np.load(path_context),
+#     POS_RESP_KEY: np.load(path_pos_resp),
+#     NEG_RESP_KEY: np.load(path_pos_resp),
+# }

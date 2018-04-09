@@ -15,7 +15,7 @@ def load_stopwords():
     return set(stopwords.words('english'))
 
 
-def load_word_embedding(load_glove=False):
+def load_word_embedding(load_glove=True):
     from gensim.models import KeyedVectors
     if load_glove:
         # load the Stanford GloVe model
