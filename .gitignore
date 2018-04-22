@@ -6,3 +6,4 @@ self_test/*
 self_test
 train_model/_model
 trained_model/
+coding_model/preprocess/prep_cornell*
