@@ -41,8 +41,6 @@ def lstm_sentence_embedding(features, labels, mode, params):
                                       output_keep_prob=output_keep_prob)
         projection_cell = rnn.OutputProjectionWrapper(cell=cell, output_size=lstm_emb_size, activation=tf.nn.softmax)
 
-#         for v in tf.trainable_variables():
-#             tf.summary.histogram(name=v.name.replace(':0', ''), values=v)
 
     def lstm_embed_sentence(x):
         # (outputs, final_state) is returned from tf.nn.dynamic_rnn()
